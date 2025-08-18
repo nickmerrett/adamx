@@ -1,0 +1,1601 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent-Optimized Document Format",
+  "description": "A document format designed for optimal processing by AI agents and LLMs, with section-based structure for granular content access",
+  "type": "object",
+  "required": ["format", "version", "metadata", "sections"],
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "agent-document",
+      "description": "Identifier for this document format"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the document format"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["title", "created", "modified"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Document title"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Document subtitle or secondary title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of document content"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Detailed summary of the document"
+        },
+        "abstract": {
+          "type": "string",
+          "description": "Academic-style abstract"
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Author name"
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "description": "Author email"
+              },
+              "affiliation": {
+                "type": "string",
+                "description": "Author's organization or affiliation"
+              },
+              "role": {
+                "type": "string",
+                "enum": ["primary", "contributor", "reviewer", "editor"],
+                "description": "Author's role in document creation"
+              },
+              "orcid": {
+                "type": "string",
+                "description": "ORCID identifier"
+              }
+            },
+            "required": ["name"]
+          },
+          "description": "Document authors with detailed information"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Document creation timestamp"
+        },
+        "modified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last modification timestamp"
+        },
+        "published": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Publication timestamp"
+        },
+        "version": {
+          "type": "string",
+          "description": "Document version"
+        },
+        "revision": {
+          "type": "integer",
+          "description": "Revision number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "review", "approved", "published", "archived", "deprecated"],
+          "description": "Document status"
+        },
+        "license": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "License name (e.g., 'MIT', 'Apache-2.0', 'CC-BY-4.0')"
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "License URL"
+            },
+            "text": {
+              "type": "string",
+              "description": "Full license text"
+            }
+          }
+        },
+        "copyright": {
+          "type": "object",
+          "properties": {
+            "year": {
+              "type": "integer",
+              "description": "Copyright year"
+            },
+            "holder": {
+              "type": "string",
+              "description": "Copyright holder"
+            },
+            "notice": {
+              "type": "string",
+              "description": "Copyright notice"
+            }
+          }
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scheme": {
+                "type": "string",
+                "description": "Classification scheme (e.g., 'dewey', 'subject', 'topic')"
+              },
+              "code": {
+                "type": "string",
+                "description": "Category code"
+              },
+              "label": {
+                "type": "string",
+                "description": "Human-readable category label"
+              }
+            }
+          },
+          "description": "Structured categories and classifications"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for categorization and search"
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Keywords for search and indexing"
+        },
+        "language": {
+          "type": "string",
+          "default": "en",
+          "description": "Primary language code (ISO 639-1)"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "All languages present in the document"
+        },
+        "audience": {
+          "type": "object",
+          "properties": {
+            "primary": {
+              "type": "string",
+              "enum": ["general", "academic", "technical", "professional", "educational", "children"],
+              "description": "Primary target audience"
+            },
+            "expertise_level": {
+              "type": "string",
+              "enum": ["beginner", "intermediate", "advanced", "expert"],
+              "description": "Required expertise level"
+            },
+            "age_range": {
+              "type": "string",
+              "description": "Target age range (e.g., '18-65', '13+')"
+            }
+          }
+        },
+        "purpose": {
+          "type": "string",
+          "enum": ["instruction", "reference", "analysis", "report", "proposal", "specification", "documentation", "research"],
+          "description": "Primary purpose of the document"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Subject domain (e.g., 'computer science', 'medicine', 'law')"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score for document content accuracy"
+        },
+        "quality_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Overall quality assessment score"
+        },
+        "readability": {
+          "type": "object",
+          "properties": {
+            "flesch_kincaid": {
+              "type": "number",
+              "description": "Flesch-Kincaid grade level"
+            },
+            "flesch_reading_ease": {
+              "type": "number",
+              "description": "Flesch Reading Ease score"
+            },
+            "estimated_reading_time": {
+              "type": "integer",
+              "description": "Estimated reading time in minutes"
+            }
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Source title"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "description": "Source URL"
+              },
+              "doi": {
+                "type": "string",
+                "description": "DOI identifier"
+              },
+              "citation": {
+                "type": "string",
+                "description": "Formatted citation"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["book", "article", "website", "paper", "dataset", "software"],
+                "description": "Source type"
+              }
+            }
+          },
+          "description": "Referenced sources and citations"
+        },
+        "embedding_model": {
+          "type": "string",
+          "description": "Model used for generating embeddings (e.g., 'text-embedding-ada-002', 'sentence-transformers/all-MiniLM-L6-v2')"
+        },
+        "embedding_dimension": {
+          "type": "integer",
+          "description": "Dimension of the embedding vectors"
+        },
+        "processing": {
+          "type": "object",
+          "properties": {
+            "extraction_method": {
+              "type": "string",
+              "description": "Method used to extract/create this document"
+            },
+            "source_format": {
+              "type": "string",
+              "description": "Original source format (pdf, html, docx, etc.)"
+            },
+            "preprocessed": {
+              "type": "boolean",
+              "description": "Whether content has been preprocessed"
+            },
+            "validated": {
+              "type": "boolean",
+              "description": "Whether content has been validated"
+            }
+          }
+        },
+        "external_ids": {
+          "type": "object",
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "description": "External identifiers (ISBN, DOI, PubMed ID, etc.)"
+        },
+        "custom": {
+          "type": "object",
+          "description": "Custom metadata fields for extensibility",
+          "additionalProperties": true
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "content"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this section"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["paragraph", "heading", "list", "code", "quote", "image", "table", "math", "figure", "diagram", "chart", "custom"],
+            "description": "Type of content in this section"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "description": "Hierarchical level (for headings and nested content)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional title for the section"
+          },
+          "content": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "Text content for text-based sections"
+              },
+              {
+                "type": "object",
+                "description": "Structured content for images, tables, etc.",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["image", "table", "list", "code", "math", "custom"],
+                    "description": "Type of structured content"
+                  },
+                  "data": {
+                    "description": "Content data specific to the type"
+                  }
+                },
+                "required": ["type", "data"]
+              }
+            ],
+            "description": "The actual content of the section - can be text or structured data"
+          },
+          "image": {
+            "type": "object",
+            "description": "Image-specific properties when section type is image, figure, diagram, or chart",
+            "properties": {
+              "src": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URL or file path to the image"
+                  },
+                  {
+                    "type": "string",
+                    "description": "Base64 encoded image data with data URI format"
+                  }
+                ]
+              },
+              "format": {
+                "type": "string",
+                "enum": ["jpeg", "jpg", "png", "gif", "webp", "svg", "bmp", "tiff", "pdf"],
+                "description": "Image format"
+              },
+              "dimensions": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "integer",
+                    "description": "Image width in pixels"
+                  },
+                  "height": {
+                    "type": "integer",
+                    "description": "Image height in pixels"
+                  },
+                  "aspect_ratio": {
+                    "type": "number",
+                    "description": "Width/height ratio"
+                  }
+                }
+              },
+              "file_size": {
+                "type": "integer",
+                "description": "File size in bytes"
+              },
+              "alt_text": {
+                "type": "string",
+                "description": "Alternative text description for accessibility"
+              },
+              "caption": {
+                "type": "string",
+                "description": "Image caption"
+              },
+              "title": {
+                "type": "string",
+                "description": "Image title"
+              },
+              "description": {
+                "type": "string",
+                "description": "Detailed description of image content"
+              },
+              "generated_description": {
+                "type": "string",
+                "description": "AI-generated description of image content"
+              },
+              "ocr_text": {
+                "type": "string",
+                "description": "Text extracted from image via OCR"
+              },
+              "visual_elements": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["face", "object", "text", "logo", "landmark", "scene", "activity", "emotion"],
+                      "description": "Type of visual element detected"
+                    },
+                    "label": {
+                      "type": "string",
+                      "description": "Element label or description"
+                    },
+                    "confidence": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1,
+                      "description": "Detection confidence score"
+                    },
+                    "bounding_box": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number",
+                          "description": "X coordinate (normalized 0-1)"
+                        },
+                        "y": {
+                          "type": "number",
+                          "description": "Y coordinate (normalized 0-1)"
+                        },
+                        "width": {
+                          "type": "number",
+                          "description": "Width (normalized 0-1)"
+                        },
+                        "height": {
+                          "type": "number",
+                          "description": "Height (normalized 0-1)"
+                        }
+                      }
+                    }
+                  }
+                },
+                "description": "Visual elements detected in the image"
+              },
+              "colors": {
+                "type": "object",
+                "properties": {
+                  "dominant": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Dominant colors in hex format"
+                  },
+                  "palette": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "color": {
+                          "type": "string",
+                          "description": "Color in hex format"
+                        },
+                        "percentage": {
+                          "type": "number",
+                          "description": "Percentage of image this color represents"
+                        }
+                      }
+                    },
+                    "description": "Full color palette analysis"
+                  }
+                }
+              },
+              "visual_embedding": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "description": "Visual embedding vector for image similarity search"
+              },
+              "visual_embedding_model": {
+                "type": "string",
+                "description": "Model used for visual embedding (e.g., 'clip-vit-base-patch32', 'resnet50')"
+              },
+              "thumbnails": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "size": {
+                      "type": "string",
+                      "description": "Thumbnail size (e.g., '150x150', 'small', 'medium')"
+                    },
+                    "src": {
+                      "type": "string",
+                      "description": "Thumbnail image source (URL or base64)"
+                    }
+                  }
+                },
+                "description": "Generated thumbnails in various sizes"
+              },
+              "exif": {
+                "type": "object",
+                "description": "EXIF metadata from the image",
+                "additionalProperties": true
+              },
+              "processing": {
+                "type": "object",
+                "properties": {
+                  "analyzed": {
+                    "type": "boolean",
+                    "description": "Whether image has been analyzed by AI"
+                  },
+                  "analysis_model": {
+                    "type": "string",
+                    "description": "AI model used for analysis"
+                  },
+                  "analysis_timestamp": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When analysis was performed"
+                  },
+                  "compressed": {
+                    "type": "boolean",
+                    "description": "Whether image has been compressed"
+                  },
+                  "optimized": {
+                    "type": "boolean",
+                    "description": "Whether image has been optimized for web"
+                  }
+                }
+              }
+            }
+          },
+          "table": {
+            "type": "object",
+            "description": "Table-specific properties when section type is table",
+            "properties": {
+              "structure": {
+                "type": "object",
+                "properties": {
+                  "rows": {
+                    "type": "integer",
+                    "description": "Number of rows in the table"
+                  },
+                  "columns": {
+                    "type": "integer",
+                    "description": "Number of columns in the table"
+                  },
+                  "has_header": {
+                    "type": "boolean",
+                    "description": "Whether table has a header row"
+                  },
+                  "has_footer": {
+                    "type": "boolean",
+                    "description": "Whether table has a footer row"
+                  }
+                }
+              },
+              "headers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "description": "Header cell text"
+                    },
+                    "data_type": {
+                      "type": "string",
+                      "enum": ["text", "number", "date", "boolean", "currency", "percentage", "custom"],
+                      "description": "Expected data type for this column"
+                    },
+                    "alignment": {
+                      "type": "string",
+                      "enum": ["left", "center", "right", "justify"],
+                      "description": "Text alignment"
+                    },
+                    "width": {
+                      "type": "string",
+                      "description": "Column width (CSS format)"
+                    },
+                    "sortable": {
+                      "type": "boolean",
+                      "description": "Whether this column can be sorted"
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Description of what this column represents"
+                    }
+                  }
+                },
+                "description": "Table header definitions"
+              },
+              "data": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "description": "Cell value (any type)"
+                      },
+                      "formatted_value": {
+                        "type": "string",
+                        "description": "Human-readable formatted value"
+                      },
+                      "data_type": {
+                        "type": "string",
+                        "enum": ["text", "number", "date", "boolean", "currency", "percentage", "null", "custom"],
+                        "description": "Actual data type of this cell"
+                      },
+                      "alignment": {
+                        "type": "string",
+                        "enum": ["left", "center", "right", "justify"],
+                        "description": "Cell-specific alignment override"
+                      },
+                      "style": {
+                        "type": "object",
+                        "description": "Cell-specific styling (CSS properties)",
+                        "additionalProperties": true
+                      },
+                      "rowspan": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Number of rows this cell spans"
+                      },
+                      "colspan": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Number of columns this cell spans"
+                      },
+                      "metadata": {
+                        "type": "object",
+                        "properties": {
+                          "confidence": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "description": "Confidence in extracted/parsed value"
+                          },
+                          "source": {
+                            "type": "string",
+                            "description": "Source of this cell's data"
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "description": "Whether value has been validated"
+                          }
+                        }
+                      }
+                    },
+                    "required": ["value"]
+                  }
+                },
+                "description": "Table data as array of rows, each row is array of cells"
+              },
+              "caption": {
+                "type": "string",
+                "description": "Table caption"
+              },
+              "summary": {
+                "type": "string",
+                "description": "Table summary for accessibility"
+              },
+              "statistics": {
+                "type": "object",
+                "properties": {
+                  "total_cells": {
+                    "type": "integer",
+                    "description": "Total number of cells"
+                  },
+                  "empty_cells": {
+                    "type": "integer",
+                    "description": "Number of empty cells"
+                  },
+                  "numeric_columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Indices of columns containing numeric data"
+                  },
+                  "column_stats": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "column_index": {
+                          "type": "integer",
+                          "description": "Column index"
+                        },
+                        "unique_values": {
+                          "type": "integer",
+                          "description": "Number of unique values"
+                        },
+                        "null_count": {
+                          "type": "integer",
+                          "description": "Number of null/empty values"
+                        },
+                        "data_type_distribution": {
+                          "type": "object",
+                          "description": "Distribution of data types in this column"
+                        },
+                        "numeric_stats": {
+                          "type": "object",
+                          "properties": {
+                            "min": {
+                              "type": "number",
+                              "description": "Minimum value"
+                            },
+                            "max": {
+                              "type": "number",
+                              "description": "Maximum value"
+                            },
+                            "mean": {
+                              "type": "number",
+                              "description": "Average value"
+                            },
+                            "median": {
+                              "type": "number",
+                              "description": "Median value"
+                            },
+                            "std_dev": {
+                              "type": "number",
+                              "description": "Standard deviation"
+                            }
+                          },
+                          "description": "Statistics for numeric columns"
+                        }
+                      }
+                    },
+                    "description": "Per-column statistics"
+                  }
+                }
+              },
+              "relationships": {
+                "type": "object",
+                "properties": {
+                  "key_columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Column indices that serve as primary keys"
+                  },
+                  "foreign_keys": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "column_index": {
+                          "type": "integer",
+                          "description": "Local column index"
+                        },
+                        "references": {
+                          "type": "object",
+                          "properties": {
+                            "table_id": {
+                              "type": "string",
+                              "description": "Referenced table section ID"
+                            },
+                            "column_index": {
+                              "type": "integer",
+                              "description": "Referenced column index"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "description": "Foreign key relationships to other tables"
+                  }
+                }
+              },
+              "extraction": {
+                "type": "object",
+                "properties": {
+                  "source_format": {
+                    "type": "string",
+                    "enum": ["html", "csv", "excel", "pdf", "image", "manual"],
+                    "description": "Original format the table was extracted from"
+                  },
+                  "extraction_method": {
+                    "type": "string",
+                    "description": "Method used to extract table data"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Overall extraction confidence score"
+                  },
+                  "validated": {
+                    "type": "boolean",
+                    "description": "Whether table structure has been validated"
+                  },
+                  "parsing_errors": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "row": {
+                          "type": "integer",
+                          "description": "Row index with error"
+                        },
+                        "column": {
+                          "type": "integer",
+                          "description": "Column index with error"
+                        },
+                        "error_type": {
+                          "type": "string",
+                          "description": "Type of parsing error"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Error description"
+                        }
+                      }
+                    },
+                    "description": "Errors encountered during extraction/parsing"
+                  }
+                }
+              },
+              "semantic": {
+                "type": "object",
+                "properties": {
+                  "table_type": {
+                    "type": "string",
+                    "enum": ["data", "comparison", "financial", "schedule", "inventory", "results", "lookup", "custom"],
+                    "description": "Semantic type of the table"
+                  },
+                  "entities": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "row": {
+                          "type": "integer",
+                          "description": "Row index"
+                        },
+                        "column": {
+                          "type": "integer",
+                          "description": "Column index"
+                        },
+                        "entity_type": {
+                          "type": "string",
+                          "description": "Type of entity recognized"
+                        },
+                        "entity_value": {
+                          "type": "string",
+                          "description": "Extracted entity value"
+                        },
+                        "confidence": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1,
+                          "description": "Entity recognition confidence"
+                        }
+                      }
+                    },
+                    "description": "Named entities found within table cells"
+                  },
+                  "topics": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Main topics or themes of the table content"
+                  }
+                }
+              },
+              "accessibility": {
+                "type": "object",
+                "properties": {
+                  "screen_reader_description": {
+                    "type": "string",
+                    "description": "Detailed description for screen readers"
+                  },
+                  "navigation_hints": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Hints for navigating the table"
+                  },
+                  "key_insights": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Key insights that can be derived from the table"
+                  }
+                }
+              }
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "importance": {
+                "type": "string",
+                "enum": ["low", "medium", "high", "critical"],
+                "description": "Relative importance of this section"
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10,
+                "description": "Numeric priority for processing order"
+              },
+              "complexity": {
+                "type": "string",
+                "enum": ["simple", "moderate", "complex", "expert"],
+                "description": "Cognitive complexity level of the content"
+              },
+              "keywords": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Keywords associated with this section"
+              },
+              "concepts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Concept name"
+                    },
+                    "definition": {
+                      "type": "string",
+                      "description": "Concept definition"
+                    },
+                    "weight": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1,
+                      "description": "Concept relevance weight"
+                    }
+                  }
+                },
+                "description": "Key concepts discussed in this section"
+              },
+              "entities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "description": "Entity text"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["PERSON", "ORG", "GPE", "PRODUCT", "EVENT", "DATE", "MONEY", "CUSTOM"],
+                      "description": "Entity type"
+                    },
+                    "confidence": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1,
+                      "description": "Entity extraction confidence"
+                    },
+                    "start": {
+                      "type": "integer",
+                      "description": "Start position in content"
+                    },
+                    "end": {
+                      "type": "integer",
+                      "description": "End position in content"
+                    }
+                  }
+                },
+                "description": "Named entities extracted from the section"
+              },
+              "references": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "target": {
+                      "type": "string",
+                      "description": "Reference target (section ID, URL, citation)"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["internal", "external", "citation", "footnote"],
+                      "description": "Reference type"
+                    },
+                    "label": {
+                      "type": "string",
+                      "description": "Human-readable reference label"
+                    },
+                    "context": {
+                      "type": "string",
+                      "description": "Context of the reference"
+                    }
+                  }
+                },
+                "description": "References to other sections or external resources"
+              },
+              "context": {
+                "type": "string",
+                "description": "Additional context for understanding this section"
+              },
+              "purpose": {
+                "type": "string",
+                "enum": ["introduction", "explanation", "example", "conclusion", "transition", "definition", "procedure", "analysis"],
+                "description": "Purpose of this section within the document"
+              },
+              "tone": {
+                "type": "string",
+                "enum": ["formal", "informal", "technical", "conversational", "academic", "instructional"],
+                "description": "Writing tone of the section"
+              },
+              "readability": {
+                "type": "object",
+                "properties": {
+                  "grade_level": {
+                    "type": "number",
+                    "description": "Estimated grade level"
+                  },
+                  "word_count": {
+                    "type": "integer",
+                    "description": "Word count"
+                  },
+                  "sentence_count": {
+                    "type": "integer",
+                    "description": "Sentence count"
+                  },
+                  "avg_sentence_length": {
+                    "type": "number",
+                    "description": "Average sentence length"
+                  }
+                }
+              },
+              "quality": {
+                "type": "object",
+                "properties": {
+                  "completeness": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Content completeness score"
+                  },
+                  "accuracy": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Content accuracy score"
+                  },
+                  "clarity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Content clarity score"
+                  },
+                  "factual_claims": {
+                    "type": "integer",
+                    "description": "Number of factual claims"
+                  },
+                  "verified_claims": {
+                    "type": "integer",
+                    "description": "Number of verified factual claims"
+                  }
+                }
+              },
+              "temporal": {
+                "type": "object",
+                "properties": {
+                  "created": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Section creation time"
+                  },
+                  "modified": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Last modification time"
+                  },
+                  "expires": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Content expiration time"
+                  },
+                  "freshness_score": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Content freshness score"
+                  }
+                }
+              },
+              "processing": {
+                "type": "object",
+                "properties": {
+                  "extracted": {
+                    "type": "boolean",
+                    "description": "Whether content was automatically extracted"
+                  },
+                  "generated": {
+                    "type": "boolean",
+                    "description": "Whether content was AI-generated"
+                  },
+                  "reviewed": {
+                    "type": "boolean",
+                    "description": "Whether content has been human-reviewed"
+                  },
+                  "source_confidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Confidence in source material"
+                  }
+                }
+              },
+              "embedding": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "description": "Vector embedding of the section content for semantic search and similarity matching"
+              },
+              "embedding_hash": {
+                "type": "string",
+                "description": "Hash of the content used to generate the embedding, for cache validation"
+              },
+              "annotations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["highlight", "comment", "correction", "suggestion", "question"],
+                      "description": "Annotation type"
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "Annotation text"
+                    },
+                    "author": {
+                      "type": "string",
+                      "description": "Annotation author"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Annotation timestamp"
+                    },
+                    "start": {
+                      "type": "integer",
+                      "description": "Start position in content"
+                    },
+                    "end": {
+                      "type": "integer",
+                      "description": "End position in content"
+                    }
+                  }
+                },
+                "description": "Annotations and comments on the section"
+              },
+              "custom": {
+                "type": "object",
+                "description": "Custom section metadata for extensibility",
+                "additionalProperties": true
+              }
+            }
+          },
+          "relationships": {
+            "type": "object",
+            "properties": {
+              "parent": {
+                "type": "string",
+                "description": "ID of parent section"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "IDs of child sections"
+              },
+              "dependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "IDs of sections this section depends on"
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "IDs of related sections"
+              },
+              "semantic_similarity": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "section_id": {
+                      "type": "string",
+                      "description": "ID of semantically similar section"
+                    },
+                    "similarity_score": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1,
+                      "description": "Cosine similarity score (0-1)"
+                    }
+                  },
+                  "required": ["section_id", "similarity_score"]
+                },
+                "description": "Semantically similar sections based on embedding vectors"
+              }
+            }
+          }
+        }
+      }
+    },
+    "index": {
+      "type": "object",
+      "description": "Optional index for fast lookup",
+      "properties": {
+        "sections_by_type": {
+          "type": "object",
+          "patternProperties": {
+            ".*": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "sections_by_keyword": {
+          "type": "object",
+          "patternProperties": {
+            ".*": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "sections_by_importance": {
+          "type": "object",
+          "patternProperties": {
+            ".*": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "embedding_index": {
+          "type": "object",
+          "description": "Optional vector index for fast similarity search",
+          "properties": {
+            "index_type": {
+              "type": "string",
+              "enum": ["faiss", "annoy", "hnsw", "custom"],
+              "description": "Type of vector index used"
+            },
+            "index_metadata": {
+              "type": "object",
+              "description": "Index-specific configuration and metadata"
+            },
+            "section_vectors": {
+              "type": "object",
+              "patternProperties": {
+                ".*": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                }
+              },
+              "description": "Map of section IDs to their embedding vectors"
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "format": "agent-document",
+      "version": "1.0.0",
+      "metadata": {
+        "title": "Introduction to Machine Learning",
+        "description": "A comprehensive guide to machine learning fundamentals",
+        "author": "AI Assistant",
+        "created": "2025-08-17T10:00:00Z",
+        "modified": "2025-08-17T10:00:00Z",
+        "tags": ["machine-learning", "ai", "tutorial"],
+        "language": "en",
+        "embedding_model": "text-embedding-ada-002",
+        "embedding_dimension": 1536
+      },
+      "sections": [
+        {
+          "id": "intro-1",
+          "type": "heading",
+          "level": 1,
+          "title": "What is Machine Learning?",
+          "content": "What is Machine Learning?",
+          "metadata": {
+            "importance": "critical",
+            "keywords": ["machine learning", "definition"],
+            "embedding": [0.1, -0.2, 0.3, 0.05],
+            "embedding_hash": "abc123def456"
+          }
+        },
+        {
+          "id": "para-1",
+          "type": "paragraph",
+          "content": "Machine learning is a subset of artificial intelligence that enables computers to learn and make decisions from data without being explicitly programmed for every scenario.",
+          "metadata": {
+            "importance": "high",
+            "keywords": ["AI", "data", "learning"],
+            "embedding": [0.15, -0.18, 0.25, 0.08],
+            "embedding_hash": "def789ghi012"
+          },
+          "relationships": {
+            "parent": "intro-1",
+            "semantic_similarity": [
+              {
+                "section_id": "intro-1",
+                "similarity_score": 0.85
+              }
+            ]
+          }
+        },
+        {
+          "id": "fig-1",
+          "type": "figure",
+          "title": "Machine Learning Process Diagram",
+          "content": {
+            "type": "image",
+            "data": "Figure showing the machine learning workflow"
+          },
+          "image": {
+            "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+            "format": "png",
+            "dimensions": {
+              "width": 800,
+              "height": 600,
+              "aspect_ratio": 1.33
+            },
+            "alt_text": "Diagram showing data input, training process, model, and prediction output",
+            "caption": "The typical machine learning workflow from data to predictions",
+            "generated_description": "A flowchart diagram illustrating the machine learning process with boxes representing data collection, preprocessing, model training, and prediction phases connected by arrows.",
+            "visual_elements": [
+              {
+                "type": "text",
+                "label": "Data",
+                "confidence": 0.95,
+                "bounding_box": {
+                  "x": 0.1,
+                  "y": 0.2,
+                  "width": 0.15,
+                  "height": 0.1
+                }
+              }
+            ],
+            "colors": {
+              "dominant": ["#3498db", "#2ecc71", "#f39c12"],
+              "palette": [
+                {
+                  "color": "#3498db",
+                  "percentage": 45.2
+                },
+                {
+                  "color": "#2ecc71", 
+                  "percentage": 30.1
+                }
+              ]
+            },
+            "visual_embedding": [0.2, -0.1, 0.4, 0.15],
+            "visual_embedding_model": "clip-vit-base-patch32"
+          },
+          "metadata": {
+            "importance": "high",
+            "keywords": ["diagram", "workflow", "process"],
+            "purpose": "explanation",
+            "embedding": [0.18, -0.12, 0.35, 0.09],
+            "embedding_hash": "img123hash456"
+          },
+          "relationships": {
+            "parent": "intro-1",
+            "related": ["para-1"]
+          }
+        },
+        {
+          "id": "table-1",
+          "type": "table",
+          "title": "Machine Learning Algorithm Comparison",
+          "content": {
+            "type": "table",
+            "data": "Comparison of popular machine learning algorithms"
+          },
+          "table": {
+            "structure": {
+              "rows": 4,
+              "columns": 4,
+              "has_header": true,
+              "has_footer": false
+            },
+            "headers": [
+              {
+                "text": "Algorithm",
+                "data_type": "text",
+                "alignment": "left",
+                "description": "Name of the machine learning algorithm"
+              },
+              {
+                "text": "Type",
+                "data_type": "text",
+                "alignment": "center",
+                "description": "Type of machine learning (supervised, unsupervised, etc.)"
+              },
+              {
+                "text": "Accuracy",
+                "data_type": "percentage",
+                "alignment": "right",
+                "description": "Typical accuracy percentage on test datasets"
+              },
+              {
+                "text": "Training Time",
+                "data_type": "text",
+                "alignment": "center",
+                "description": "Relative training time requirement"
+              }
+            ],
+            "data": [
+              [
+                {
+                  "value": "Linear Regression",
+                  "formatted_value": "Linear Regression",
+                  "data_type": "text"
+                },
+                {
+                  "value": "Supervised",
+                  "formatted_value": "Supervised",
+                  "data_type": "text"
+                },
+                {
+                  "value": 0.85,
+                  "formatted_value": "85%",
+                  "data_type": "percentage"
+                },
+                {
+                  "value": "Fast",
+                  "formatted_value": "Fast",
+                  "data_type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "Random Forest",
+                  "formatted_value": "Random Forest",
+                  "data_type": "text"
+                },
+                {
+                  "value": "Supervised",
+                  "formatted_value": "Supervised",
+                  "data_type": "text"
+                },
+                {
+                  "value": 0.92,
+                  "formatted_value": "92%",
+                  "data_type": "percentage"
+                },
+                {
+                  "value": "Medium",
+                  "formatted_value": "Medium",
+                  "data_type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "K-Means",
+                  "formatted_value": "K-Means",
+                  "data_type": "text"
+                },
+                {
+                  "value": "Unsupervised",
+                  "formatted_value": "Unsupervised",
+                  "data_type": "text"
+                },
+                {
+                  "value": null,
+                  "formatted_value": "N/A",
+                  "data_type": "null"
+                },
+                {
+                  "value": "Fast",
+                  "formatted_value": "Fast",
+                  "data_type": "text"
+                }
+              ]
+            ],
+            "caption": "Comparison of three popular machine learning algorithms showing their characteristics",
+            "statistics": {
+              "total_cells": 12,
+              "empty_cells": 1,
+              "numeric_columns": [2],
+              "column_stats": [
+                {
+                  "column_index": 2,
+                  "unique_values": 2,
+                  "null_count": 1,
+                  "numeric_stats": {
+                    "min": 0.85,
+                    "max": 0.92,
+                    "mean": 0.885,
+                    "median": 0.885
+                  }
+                }
+              ]
+            },
+            "semantic": {
+              "table_type": "comparison",
+              "entities": [
+                {
+                  "row": 0,
+                  "column": 0,
+                  "entity_type": "ALGORITHM",
+                  "entity_value": "Linear Regression",
+                  "confidence": 0.95
+                }
+              ],
+              "topics": ["machine learning", "algorithms", "comparison", "performance"]
+            },
+            "accessibility": {
+              "screen_reader_description": "A table comparing three machine learning algorithms: Linear Regression, Random Forest, and K-Means, showing their type, accuracy, and training time requirements.",
+              "key_insights": [
+                "Random Forest has the highest accuracy at 92%",
+                "Both Linear Regression and K-Means are fast to train",
+                "K-Means is unsupervised so accuracy is not applicable"
+              ]
+            }
+          },
+          "metadata": {
+            "importance": "high",
+            "keywords": ["table", "algorithms", "comparison", "performance"],
+            "purpose": "comparison",
+            "embedding": [0.22, -0.15, 0.38, 0.11],
+            "embedding_hash": "table456hash789"
+          },
+          "relationships": {
+            "parent": "intro-1",
+            "related": ["para-1", "fig-1"]
+          }
+        }
+      ]
+    }
+  ]
+}
