@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAD Format Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin: 10px 0;
+        }
+        .output {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .log {
+            background: #f1f3f4;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>MAD Format Test Interface</h1>
+    <p>Test the Multi-Agent Document format with WASM runtime</p>
+
+    <div class="section">
+        <h3>1. Initialize MAD Document</h3>
+        <input type="text" id="title" placeholder="Document Title" value="Test Document">
+        <input type="text" id="author" placeholder="Author Name" value="Test Author">
+        <button onclick="createDocument()">Create Document</button>
+        <div class="output" id="createOutput"></div>
+    </div>
+
+    <div class="section">
+        <h3>2. Add Content</h3>
+        <textarea id="content" placeholder="Enter content to add">This is a test document about artificial intelligence and machine learning.</textarea>
+        <button onclick="addContent()">Add Text Content</button>
+        <button onclick="addHtmlContent()">Add HTML Content</button>
+        <div class="output" id="contentOutput"></div>
+    </div>
+
+    <div class="section">
+        <h3>3. Add Vector Embedding (Mock)</h3>
+        <button onclick="addEmbedding()">Add Mock Embedding</button>
+        <div class="output" id="embeddingOutput"></div>
+    </div>
+
+    <div class="section">
+        <h3>4. Add Graph Entities</h3>
+        <input type="text" id="entityId" placeholder="Entity ID" value="person1">
+        <input type="text" id="entityLabel" placeholder="Entity Label" value="Person">
+        <input type="text" id="entityProps" placeholder="Entity Properties (JSON)" value='{"name": "John Doe", "role": "Researcher"}'>
+        <button onclick="addEntity()">Add Entity</button>
+        <div class="output" id="entityOutput"></div>
+    </div>
+
+    <div class="section">
+        <h3>5. Debug Builder Content</h3>
+        <button onclick="showBuilderContent()">Show Builder Content</button>
+        <div class="output" id="builderDebugOutput"></div>
+    </div>
+
+    <div class="section">
+        <h3>6. Build Document (Optional - needed for search/MCP)</h3>
+        <button onclick="buildDocument()">Build Document</button>
+        <button onclick="buildSimpleDocument()">Build Simple Document</button>
+        <div class="output" id="buildOutput"></div>
+    </div>
+
+    <div class="section">
+        <h3>7. Search Content (Requires Build)</h3>
+        <input type="text" id="searchQuery" placeholder="Search query" value="artificial intelligence">
+        <button onclick="searchContent()">Search</button>
+        <button onclick="debugDocument()">Debug Document</button>
+        <button onclick="showDocumentContent()">Show Document Content</button>
+        <button onclick="testBasicWasm()">Test Basic WASM</button>
+        <button onclick="testSearchAlternatives()">Test Search Alternatives</button>
+        <div class="output" id="searchOutput"></div>
+    </div>
+
+    <div class="section">
+        <h3>8. MCP Server Test</h3>
+        <button onclick="testMcp()">Test MCP Tools</button>
+        <div class="output" id="mcpOutput"></div>
+    </div>
+
+    <div class="section">
+        <h3>9. Document Info</h3>
+        <button onclick="getMetadata()">Get Metadata/Manifest</button>
+        <button onclick="calculateHash()">Calculate Hash (Requires Build)</button>
+        <div class="output" id="infoOutput"></div>
+    </div>
+
+    <div class="log" id="log"></div>
+
+    <script type="module">
+        import init, { MadBuilder, MadDocument, McpServer } from './pkg/mad_runtime.js';
+
+        let madBuilder = null;
+        let madDocument = null;
+        let mcpServer = null;
+        let contentId = null;
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            logElement.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        async function initWasm() {
+            try {
+                await init();
+                log('WASM module initialized successfully');
+                log('Package timestamp: ' + new Date().toISOString()); // Force cache refresh indicator
+            } catch (error) {
+                log('Error initializing WASM: ' + error);
+            }
+        }
+
+        window.createDocument = function() {
+            try {
+                const title = document.getElementById('title').value;
+                const author = document.getElementById('author').value;
+                
+                madBuilder = new MadBuilder(title, author);
+                
+                document.getElementById('createOutput').textContent = 
+                    'Document builder created successfully!\nTitle: ' + title + '\nAuthor: ' + author;
+                
+                log('Document builder created');
+            } catch (error) {
+                document.getElementById('createOutput').textContent = 'Error: ' + error;
+                log('Error creating document: ' + error);
+            }
+        };
+
+        window.addContent = function() {
+            if (!madBuilder) {
+                alert('Please create a document first');
+                return;
+            }
+            
+            try {
+                const content = document.getElementById('content').value;
+                
+                contentId = madBuilder.add_text_content(content, 'text/plain');
+                document.getElementById('contentOutput').textContent = 
+                    'Content added with ID: ' + contentId;
+                log('Text content added: ' + contentId);
+            } catch (error) {
+                document.getElementById('contentOutput').textContent = 'Error: ' + error;
+                log('Error adding content: ' + error);
+            }
+        };
+
+        window.addHtmlContent = function() {
+            if (!madBuilder) {
+                alert('Please create a document first');
+                return;
+            }
+            
+            try {
+                const content = document.getElementById('content').value;
+                const htmlContent = '<p>' + content + '</p>';
+                
+                contentId = madBuilder.add_html_content(htmlContent);
+                document.getElementById('contentOutput').textContent = 
+                    'HTML content added with ID: ' + contentId;
+                log('HTML content added: ' + contentId);
+            } catch (error) {
+                document.getElementById('contentOutput').textContent = 'Error: ' + error;
+                log('Error adding HTML content: ' + error);
+            }
+        };
+
+        window.addEmbedding = function() {
+            if (!madBuilder || !contentId) {
+                alert('Please create a document and add content first');
+                return;
+            }
+            
+            try {
+                // Generate mock embedding (384-dimensional)
+                const embedding = new Array(384).fill(0).map(() => Math.random());
+                
+                madBuilder.add_vector_embedding(contentId, embedding);
+                document.getElementById('embeddingOutput').textContent = 
+                    'Mock embedding added for content: ' + contentId;
+                log('Vector embedding added for: ' + contentId);
+            } catch (error) {
+                document.getElementById('embeddingOutput').textContent = 'Error: ' + error;
+                log('Error adding embedding: ' + error);
+            }
+        };
+
+        window.addEntity = function() {
+            if (!madBuilder) {
+                alert('Please create a document first');
+                return;
+            }
+            
+            try {
+                const entityId = document.getElementById('entityId').value;
+                const entityLabel = document.getElementById('entityLabel').value;
+                const entityProps = document.getElementById('entityProps').value;
+                
+                madBuilder.create_entity(entityId, entityLabel, entityProps);
+                document.getElementById('entityOutput').textContent = 
+                    'Entity added: ' + entityId + ' (' + entityLabel + ')';
+                log('Graph entity added: ' + entityId);
+            } catch (error) {
+                document.getElementById('entityOutput').textContent = 'Error: ' + error;
+                log('Error adding entity: ' + error);
+            }
+        };
+
+        window.showBuilderContent = function() {
+            log('Showing builder content');
+            if (!madBuilder) {
+                document.getElementById('builderDebugOutput').textContent = 'No builder available';
+                return;
+            }
+            
+            try {
+                // Get all data from builder
+                const contentItemsJson = madBuilder.get_content_items_json();
+                const embeddingsJson = madBuilder.get_embeddings_json();
+                const entitiesJson = madBuilder.get_entities_json();
+                const manifest = madBuilder.export_manifest();
+                
+                log('Builder content items: ' + contentItemsJson);
+                log('Builder embeddings: ' + embeddingsJson);
+                log('Builder entities: ' + entitiesJson);
+                
+                let output = 'BUILDER CONTENT:\n\n';
+                output += 'Content Items:\n' + JSON.stringify(JSON.parse(contentItemsJson), null, 2) + '\n\n';
+                output += 'Embeddings:\n' + JSON.stringify(JSON.parse(embeddingsJson), null, 2) + '\n\n';
+                output += 'Entities:\n' + JSON.stringify(JSON.parse(entitiesJson), null, 2) + '\n\n';
+                output += 'Manifest:\n' + JSON.stringify(JSON.parse(manifest), null, 2);
+                
+                document.getElementById('builderDebugOutput').textContent = output;
+                log('Builder content displayed successfully');
+            } catch (error) {
+                document.getElementById('builderDebugOutput').textContent = 'Error showing builder content: ' + error;
+                log('Error showing builder content: ' + error);
+                console.error('Builder debug error:', error);
+            }
+        };
+
+        window.buildSimpleDocument = function() {
+            if (!madBuilder) {
+                alert('Please create a document first');
+                return;
+            }
+            
+            try {
+                log('Creating simple document with content only...');
+                const title = document.getElementById('title').value;
+                const author = document.getElementById('author').value;
+                
+                madDocument = new MadDocument(title, author);
+                log('Fresh document created');
+                
+                madDocument.init_databases();
+                log('Document databases initialized');
+                
+                // Only add content, skip embeddings and entities for now
+                const contentItemsJson = madBuilder.get_content_items_json();
+                if (contentItemsJson && contentItemsJson !== '[]') {
+                    const contentItems = JSON.parse(contentItemsJson);
+                    log('Adding ' + contentItems.length + ' content items only');
+                    
+                    for (const item of contentItems) {
+                        const binaryData = Uint8Array.from(atob(item.data_base64), c => c.charCodeAt(0));
+                        const newContentId = madDocument.add_content(item.content_type, binaryData, item.text_content);
+                        log('Added content item: ' + newContentId);
+                    }
+                }
+                
+                // Skip hash calculation to test if that's causing corruption
+                // madDocument.calculate_content_hash();
+                log('Simple document built successfully (no hash calculated)');
+                
+                // Skip MCP server to test if that's causing corruption
+                // mcpServer = new McpServer();
+                // mcpServer.set_document(madDocument);
+                
+                document.getElementById('buildOutput').textContent = 
+                    'Simple document built successfully!\nContent only - no embeddings or entities.\nNo hash calculated - testing for corruption.\nReady for search.';
+                    
+            } catch (error) {
+                document.getElementById('buildOutput').textContent = 'Simple build error: ' + error;
+                log('Simple build error: ' + error);
+                console.error('Simple build error details:', error);
+            }
+        };
+
+        window.buildDocument = function() {
+            if (!madBuilder) {
+                alert('Please create a document first');
+                return;
+            }
+            
+            try {
+                // Create a completely fresh document and manually populate it
+                log('Creating fresh document manually...');
+                const title = document.getElementById('title').value;
+                const author = document.getElementById('author').value;
+                
+                madDocument = new MadDocument(title, author);
+                log('Fresh document created');
+                
+                // Initialize the document
+                madDocument.init_databases();
+                log('Document databases initialized');
+                
+                // Get all data from the builder
+                const contentItemsJson = madBuilder.get_content_items_json();
+                const embeddingsJson = madBuilder.get_embeddings_json();
+                const entitiesJson = madBuilder.get_entities_json();
+                
+                log('Retrieved content items: ' + contentItemsJson);
+                log('Retrieved embeddings: ' + embeddingsJson);
+                log('Retrieved entities: ' + entitiesJson);
+                
+                // Map old content IDs to new content IDs
+                const contentIdMap = {};
+                
+                // Add content items
+                if (contentItemsJson && contentItemsJson !== '[]') {
+                    const contentItems = JSON.parse(contentItemsJson);
+                    log('Parsed ' + contentItems.length + ' content items');
+                    
+                    for (const item of contentItems) {
+                        // Decode base64 data back to bytes
+                        const binaryData = Uint8Array.from(atob(item.data_base64), c => c.charCodeAt(0));
+                        
+                        const newContentId = madDocument.add_content(item.content_type, binaryData, item.text_content);
+                        contentIdMap[item.id] = newContentId;  // Map old ID to new ID
+                        log('Added content item: ' + newContentId + ' (was: ' + item.id + ')');
+                    }
+                }
+                
+                // Add embeddings
+                if (embeddingsJson && embeddingsJson !== '[]') {
+                    try {
+                        const embeddings = JSON.parse(embeddingsJson);
+                        log('Parsed ' + embeddings.length + ' embeddings');
+                        
+                        for (const emb of embeddings) {
+                            try {
+                                const newContentId = contentIdMap[emb.content_id];
+                                if (newContentId) {
+                                    // Find the content text for this embedding
+                                    const contentItems = JSON.parse(contentItemsJson);
+                                    const contentItem = contentItems.find(item => item.id === emb.content_id);
+                                    const contentText = contentItem ? contentItem.text_content : '';
+                                    
+                                    log('About to add embedding for content: ' + newContentId);
+                                    madDocument.add_vector_embedding(newContentId, contentText, emb.embedding);
+                                    log('Successfully added embedding for content: ' + newContentId);
+                                } else {
+                                    log('Warning: No new content ID found for embedding: ' + emb.content_id);
+                                }
+                            } catch (embError) {
+                                log('Error adding individual embedding: ' + embError);
+                                console.error('Embedding error details:', embError);
+                            }
+                        }
+                    } catch (embParseError) {
+                        log('Error parsing embeddings JSON: ' + embParseError);
+                        console.error('Embeddings parse error:', embParseError);
+                    }
+                }
+                
+                // Add entities
+                if (entitiesJson && entitiesJson !== '[]') {
+                    try {
+                        const entities = JSON.parse(entitiesJson);
+                        log('Parsed ' + entities.length + ' entities');
+                        
+                        for (const entity of entities) {
+                            try {
+                                log('About to add entity: ' + entity.id + ' (' + entity.label + ')');
+                                madDocument.add_graph_node(entity.id, entity.label, entity.properties_json);
+                                log('Successfully added entity: ' + entity.id + ' (' + entity.label + ')');
+                            } catch (entError) {
+                                log('Error adding individual entity: ' + entError);
+                                console.error('Entity error details:', entError);
+                            }
+                        }
+                    } catch (entParseError) {
+                        log('Error parsing entities JSON: ' + entParseError);
+                        console.error('Entities parse error:', entParseError);
+                    }
+                }
+                
+                // Entities are now added from the builder data above
+                
+                // Calculate final hash
+                madDocument.calculate_content_hash();
+                log('Document hash calculated');
+                
+                // Initialize MCP server
+                mcpServer = new McpServer();
+                mcpServer.set_document(madDocument);
+                log('MCP server initialized');
+                
+                // Show final document status
+                const finalMetadata = madDocument.get_metadata();
+                log('Final document metadata: ' + finalMetadata);
+                
+                let buildOutput = 'DOCUMENT BUILT SUCCESSFULLY!\n\n';
+                buildOutput += 'Final Document Metadata:\n' + JSON.stringify(JSON.parse(finalMetadata), null, 2) + '\n\n';
+                buildOutput += 'Ready for search and MCP queries.';
+                
+                document.getElementById('buildOutput').textContent = buildOutput;
+                log('Direct build process completed successfully');
+            } catch (error) {
+                document.getElementById('buildOutput').textContent = 'Error: ' + error;
+                log('Error building document: ' + error);
+                console.error('Build error details:', error);
+            }
+        };
+
+        window.testSearchAlternatives = function() {
+            log('Testing search alternatives');
+            if (!madDocument) {
+                document.getElementById('searchOutput').textContent = 'No document available - build first';
+                return;
+            }
+            
+            try {
+                let output = 'SEARCH ALTERNATIVES TEST:\n\n';
+                
+                // Test 1: Just metadata (we know this might fail)
+                try {
+                    log('Testing metadata call...');
+                    const metadata = madDocument.get_metadata();
+                    output += '✅ Metadata call: SUCCESS\n';
+                    output += 'Metadata: ' + metadata + '\n\n';
+                } catch (metaError) {
+                    output += '❌ Metadata call: FAILED - ' + metaError + '\n\n';
+                    log('Metadata call failed: ' + metaError);
+                }
+                
+                // Test 2: Try vector search instead of content search
+                try {
+                    log('Testing vector search...');
+                    const mockEmbedding = new Array(384).fill(0.5); // Simple test vector
+                    const vectorResults = madDocument.vector_similarity_search(mockEmbedding, 5);
+                    output += '✅ Vector search: SUCCESS\n';
+                    output += 'Vector results: ' + vectorResults + '\n\n';
+                } catch (vectorError) {
+                    output += '❌ Vector search: FAILED - ' + vectorError + '\n\n';
+                    log('Vector search failed: ' + vectorError);
+                }
+                
+                // Test 3: Try graph query
+                try {
+                    log('Testing graph query...');
+                    const graphResults = madDocument.query_graph('person1', 2, null);
+                    output += '✅ Graph query: SUCCESS\n';
+                    output += 'Graph results: ' + graphResults + '\n\n';
+                } catch (graphError) {
+                    output += '❌ Graph query: FAILED - ' + graphError + '\n\n';
+                    log('Graph query failed: ' + graphError);
+                }
+                
+                // Test 4: Try content search with different queries
+                try {
+                    log('Testing content search with empty query...');
+                    const emptyResults = madDocument.search_content('');
+                    output += '✅ Empty search: SUCCESS\n';
+                    output += 'Empty search results: ' + emptyResults + '\n\n';
+                } catch (emptyError) {
+                    output += '❌ Empty search: FAILED - ' + emptyError + '\n\n';
+                    log('Empty search failed: ' + emptyError);
+                }
+                
+                document.getElementById('searchOutput').textContent = output;
+                log('Search alternatives test completed');
+                
+            } catch (error) {
+                document.getElementById('searchOutput').textContent = 'Search alternatives error: ' + error;
+                log('Search alternatives error: ' + error);
+                console.error('Search alternatives error details:', error);
+            }
+        };
+
+        window.testBasicWasm = function() {
+            log('Testing basic WASM functionality');
+            try {
+                // Test creating a fresh document directly
+                log('Creating new MadDocument directly...');
+                const testDoc = new MadDocument("Test Title", "Test Author");
+                log('Direct MadDocument creation successful');
+                
+                log('Testing basic metadata call...');
+                const metadata = testDoc.get_metadata();
+                log('Direct metadata call successful: ' + metadata);
+                
+                document.getElementById('searchOutput').textContent = 
+                    'Basic WASM Test Success:\n' + metadata;
+                log('Basic WASM test completed successfully');
+            } catch (error) {
+                document.getElementById('searchOutput').textContent = 'Basic WASM Error: ' + error;
+                log('Basic WASM error: ' + error);
+                console.error('Basic WASM error details:', error);
+            }
+        };
+
+        window.showDocumentContent = function() {
+            log('Showing document content');
+            if (!madDocument) {
+                document.getElementById('searchOutput').textContent = 'No document available - build first';
+                return;
+            }
+            
+            try {
+                // Test a simple search to see what content is available
+                const allContent = madDocument.search_content('');  // Empty query should return all content
+                log('Document content search result: ' + allContent);
+                
+                // Get metadata
+                const metadata = madDocument.get_metadata();
+                log('Document metadata: ' + metadata);
+                
+                let output = 'FINAL DOCUMENT CONTENT:\n\n';
+                output += 'Metadata:\n' + JSON.stringify(JSON.parse(metadata), null, 2) + '\n\n';
+                output += 'All Content (from search):\n' + allContent + '\n\n';
+                output += 'Content available for searching!';
+                
+                document.getElementById('searchOutput').textContent = output;
+                log('Document content displayed successfully');
+            } catch (error) {
+                document.getElementById('searchOutput').textContent = 'Error showing document content: ' + error;
+                log('Error showing document content: ' + error);
+                console.error('Document content error:', error);
+            }
+        };
+
+        window.debugDocument = function() {
+            log('Debug function called');
+            if (!madDocument) {
+                document.getElementById('searchOutput').textContent = 'No document available';
+                return;
+            }
+            
+            try {
+                log('Calling get_metadata for debug...');
+                const metadata = madDocument.get_metadata();
+                log('Metadata call successful');
+                
+                document.getElementById('searchOutput').textContent = 
+                    'Debug - Document exists and metadata accessible:\n' + metadata;
+                log('Debug completed successfully');
+            } catch (error) {
+                document.getElementById('searchOutput').textContent = 'Debug Error: ' + error;
+                log('Debug error: ' + error);
+                console.error('Debug error details:', error);
+            }
+        };
+
+        window.searchContent = function() {
+            log('Search function called');
+            log('madDocument is: ' + (madDocument ? 'available' : 'null'));
+            
+            if (!madDocument) {
+                alert('Please build the document first');
+                return;
+            }
+            
+            try {
+                const query = document.getElementById('searchQuery').value;
+                log('Searching for: ' + query);
+                
+                const results = madDocument.search_content(query);
+                log('Search completed, results: ' + results);
+                
+                document.getElementById('searchOutput').textContent = 
+                    'Search results:\n' + results;
+                log('Search performed successfully: ' + query);
+            } catch (error) {
+                document.getElementById('searchOutput').textContent = 'Error: ' + error;
+                log('Error searching: ' + error);
+                console.error('Search error details:', error);
+            }
+        };
+
+        window.testMcp = function() {
+            if (!mcpServer) {
+                alert('Please build the document first');
+                return;
+            }
+            
+            try {
+                // Test tools list
+                const toolsRequest = {
+                    method: "tools/list",
+                    params: {},
+                    id: "1"
+                };
+                
+                const toolsResponse = mcpServer.handle_request(JSON.stringify(toolsRequest));
+                document.getElementById('mcpOutput').textContent = 
+                    'MCP Tools Response:\n' + toolsResponse;
+                log('MCP tools test completed');
+            } catch (error) {
+                document.getElementById('mcpOutput').textContent = 'Error: ' + error;
+                log('Error testing MCP: ' + error);
+            }
+        };
+
+        window.getMetadata = function() {
+            log('GetMetadata function called');
+            log('madDocument is: ' + (madDocument ? 'available' : 'null'));
+            log('madBuilder is: ' + (madBuilder ? 'available' : 'null'));
+            
+            try {
+                if (madDocument) {
+                    log('Getting document metadata');
+                    // Built document - get full metadata
+                    const metadata = madDocument.get_metadata();
+                    log('Metadata retrieved: ' + metadata);
+                    
+                    document.getElementById('infoOutput').textContent = 
+                        'Document Metadata:\n' + JSON.stringify(JSON.parse(metadata), null, 2);
+                    log('Document metadata retrieved successfully');
+                } else if (madBuilder) {
+                    log('Getting builder manifest');
+                    // Builder only - get manifest
+                    const manifest = madBuilder.export_manifest();
+                    log('Manifest retrieved: ' + manifest);
+                    
+                    document.getElementById('infoOutput').textContent = 
+                        'Builder Manifest:\n' + JSON.stringify(JSON.parse(manifest), null, 2);
+                    log('Builder manifest retrieved successfully');
+                } else {
+                    alert('Please create a document first');
+                }
+            } catch (error) {
+                document.getElementById('infoOutput').textContent = 'Error: ' + error;
+                log('Error getting metadata: ' + error);
+                console.error('Metadata error details:', error);
+            }
+        };
+
+        window.calculateHash = function() {
+            log('CalculateHash function called');
+            log('madDocument is: ' + (madDocument ? 'available' : 'null'));
+            
+            try {
+                if (madDocument) {
+                    log('Calculating content hash');
+                    // Built document - calculate actual hash
+                    const hash = madDocument.calculate_content_hash();
+                    log('Hash calculated: ' + hash);
+                    
+                    document.getElementById('infoOutput').textContent = 
+                        'Content Hash: ' + hash;
+                    log('Content hash calculated successfully: ' + hash);
+                } else {
+                    alert('Please build the document first to calculate hash');
+                }
+            } catch (error) {
+                document.getElementById('infoOutput').textContent = 'Error: ' + error;
+                log('Error calculating hash: ' + error);
+                console.error('Hash calculation error details:', error);
+            }
+        };
+
+        // Initialize on page load
+        initWasm();
+    </script>
+</body>
+</html>

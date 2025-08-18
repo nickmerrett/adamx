@@ -1,0 +1,13 @@
+{
+  "format_version": "1.0",
+  "document_id": "008e68b0-d519-4fe5-a14f-da0d5e922211",
+  "content_hash": "318b15ab861035658e40497570a8cabe264613a1182c6a3ceeedb852acefa304",
+  "metadata": {
+    "title": "NFSTandC",
+    "author": "Unknown",
+    "created": "2025-08-16T20:20:12.138598",
+    "source_pdf": "../test/NFSTandC.pdf",
+    "extraction_tool": "docling",
+    "conversion_tool": "pdf_to_mad.py"
+  }
+}

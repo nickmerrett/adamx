@@ -1,0 +1,1 @@
+/config/mad/target/wasm32-unknown-unknown/release/mad_runtime.wasm: /config/mad/src/builder.rs /config/mad/src/graph_db.rs /config/mad/src/lib.rs /config/mad/src/mcp_server.rs /config/mad/src/sharing.rs
