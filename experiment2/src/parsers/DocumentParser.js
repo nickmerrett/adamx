@@ -2,7 +2,6 @@ import mammoth from 'mammoth';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import sharp from 'sharp';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 /**

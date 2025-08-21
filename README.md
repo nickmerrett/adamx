@@ -1,10 +1,12 @@
-# Agent-Optimized Document Format (ADF)
+# ADAM - Agentic Document Augmentation Markup
 
 A JSON-based document format designed specifically for optimal processing by AI agents and Large Language Models (LLMs). This format breaks documents into granular sections with rich metadata, vector embeddings, and comprehensive support for multimedia content.
 
+**ADAM** (Agentic Document Augmentation Markup) - formerly known as Agent-Optimized Document Format (ADF).
+
 ## 🎯 Purpose
 
-Traditional document formats like PDF, DOCX, or HTML are optimized for human consumption. ADF is designed for:
+Traditional document formats like PDF, DOCX, or HTML are optimized for human consumption. ADAM is designed for:
 
 - **AI/Agent Processing**: Structured for efficient parsing and understanding by AI systems
 - **Granular Access**: Section-based architecture enables precise content retrieval
@@ -304,4 +306,4 @@ See the complete example in `agent-document-schema.json` showing a machine learn
 
 ---
 
-*Agent-Optimized Document Format - Designed for the AI-first future of content processing*
+*ADAM (Agentic Document Augmentation Markup) - Designed for the AI-first future of content processing*

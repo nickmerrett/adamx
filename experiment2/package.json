@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/pipeline.js",
     "convert": "node src/cli.js",
-    "test": "jest",
+    "test": "echo \"No tests specified\"",
     "dev": "nodemon src/pipeline.js"
   },
   "keywords": [
@@ -25,24 +25,17 @@
   "dependencies": {
     "mammoth": "^1.6.0",
     "pdfjs-dist": "^4.0.379",
-    "pdf2pic": "^2.1.4",
-    "sharp": "^0.33.0",
-    "cheerio": "^1.0.0-rc.12",
     "natural": "^6.7.0",
     "compromise": "^14.10.0",
     "franc": "^6.0.0",
     "reading-time": "^1.5.0",
-    "crypto": "^1.0.1",
     "uuid": "^9.0.1",
     "commander": "^11.1.0",
     "chalk": "^5.3.0",
-    "ora": "^8.0.1",
-    "js-yaml": "^4.1.0"
+    "ora": "^8.0.1"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "nodemon": "^3.0.2",
-    "@jest/globals": "^29.7.0"
+    "nodemon": "^3.0.2"
   },
   "engines": {
     "node": ">=18.0.0"

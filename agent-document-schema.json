@@ -605,15 +605,6 @@
                       "enum": ["text", "number", "date", "boolean", "currency", "percentage", "custom"],
                       "description": "Expected data type for this column"
                     },
-                    "alignment": {
-                      "type": "string",
-                      "enum": ["left", "center", "right", "justify"],
-                      "description": "Text alignment"
-                    },
-                    "width": {
-                      "type": "string",
-                      "description": "Column width (CSS format)"
-                    },
                     "sortable": {
                       "type": "boolean",
                       "description": "Whether this column can be sorted"
@@ -644,26 +635,6 @@
                         "type": "string",
                         "enum": ["text", "number", "date", "boolean", "currency", "percentage", "null", "custom"],
                         "description": "Actual data type of this cell"
-                      },
-                      "alignment": {
-                        "type": "string",
-                        "enum": ["left", "center", "right", "justify"],
-                        "description": "Cell-specific alignment override"
-                      },
-                      "style": {
-                        "type": "object",
-                        "description": "Cell-specific styling (CSS properties)",
-                        "additionalProperties": true
-                      },
-                      "rowspan": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "description": "Number of rows this cell spans"
-                      },
-                      "colspan": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "description": "Number of columns this cell spans"
                       },
                       "metadata": {
                         "type": "object",
