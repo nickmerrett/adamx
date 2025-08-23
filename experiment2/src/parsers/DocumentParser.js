@@ -20,14 +20,21 @@ export class DocumentParser {
   /**
    * Parse a document file and extract structured content
    * @param {string} filePath - Path to the document file
+   * @param {string} [originalFilename] - Original filename to determine format if filePath has no extension
    * @returns {Promise<object>} - Parsed document content
    */
-  async parse(filePath) {
+  async parse(filePath, originalFilename) {
     const startTime = Date.now();
     this.stats.totalDocuments++;
 
     try {
-      const extension = path.extname(filePath).toLowerCase();
+      let extension = path.extname(filePath).toLowerCase();
+      
+      // If no extension in filePath, try to get it from originalFilename
+      if (!extension && originalFilename) {
+        extension = path.extname(originalFilename).toLowerCase();
+      }
+      
       let result;
 
       switch (extension) {

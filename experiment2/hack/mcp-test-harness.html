@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Server Test Harness</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .panel {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            background: #fafafa;
+        }
+        
+        .panel h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 30px;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background-color: #f8f9ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #667eea;
+            background-color: #f0f2ff;
+        }
+        
+        .file-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e8f4f8;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .mcp-controls {
+            margin: 15px 0;
+        }
+        
+        .mcp-controls button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .mcp-controls button:hover {
+            background: #5a67d8;
+        }
+        
+        .mcp-controls button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .tools-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background: white;
+        }
+        
+        .tool-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .tool-item:hover {
+            background: #f0f2ff;
+        }
+        
+        .tool-item:last-child {
+            border-bottom: none;
+        }
+        
+        .tool-name {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .tool-description {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .message-area {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background: white;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .message.info {
+            background: #e8f4f8;
+            border-left: 3px solid #17a2b8;
+        }
+        
+        .message.error {
+            background: #f8e8e8;
+            border-left: 3px solid #dc3545;
+        }
+        
+        .message.success {
+            background: #e8f8e8;
+            border-left: 3px solid #28a745;
+        }
+        
+        .message.request {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+        }
+        
+        .input-group {
+            margin: 10px 0;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .input-group textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        
+        .tool-params {
+            display: none;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-indicator.connected {
+            background: #28a745;
+        }
+        
+        .status-indicator.disconnected {
+            background: #dc3545;
+        }
+        
+        .status-indicator.connecting {
+            background: #ffc107;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 MCP Server Test Harness</h1>
+            <p>Load ADAM files and interact with MCP tools</p>
+        </div>
+        
+        <div class="content">
+            <div class="panel">
+                <h3>📁 ADAM File Loader</h3>
+                
+                <div class="upload-area" id="uploadArea">
+                    <p>🔗 Drop your ADAM WASM file here or click to browse</p>
+                    <input type="file" id="fileInput" accept=".wasm,.adam.wasm" style="display: none;">
+                </div>
+                
+                <div class="file-info" id="fileInfo">
+                    <strong>Loaded:</strong> <span id="fileName"></span><br>
+                    <strong>Size:</strong> <span id="fileSize"></span><br>
+                    <strong>MCP Status:</strong> <span id="mcpStatus">
+                        <span class="status-indicator disconnected"></span>Not Connected
+                    </span>
+                </div>
+                
+                <div class="mcp-controls">
+                    <button id="connectBtn" disabled>Connect to MCP Server</button>
+                    <button id="listToolsBtn" disabled>List Available Tools</button>
+                    <button id="clearLogBtn">Clear Log</button>
+                </div>
+                
+                <div class="input-group">
+                    <label>MCP HTTP Bridge Port:</label>
+                    <input type="number" id="serverPort" value="8080" min="1" max="65535">
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        Make sure to start the bridge first: <code>node hack/mcp-http-bridge.js</code>
+                    </small>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>🛠️ Available Tools</h3>
+                <div class="tools-list" id="toolsList">
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        Load an ADAM file and connect to see available tools
+                    </div>
+                </div>
+                
+                <div class="tool-params" id="toolParams">
+                    <h4>Tool Parameters</h4>
+                    <div id="paramInputs"></div>
+                    <button id="executeToolBtn">Execute Tool</button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="padding: 20px;">
+            <div class="panel">
+                <h3>📋 Message Log</h3>
+                <div class="message-area" id="messageLog">
+                    <div class="message info">
+                        <strong>[INFO]</strong> MCP Test Harness initialized. Load an ADAM file to begin.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class MCPTestHarness {
+            constructor() {
+                this.adamData = null;
+                this.mcpSocket = null;
+                this.isConnected = false;
+                this.availableTools = [];
+                this.selectedTool = null;
+                
+                this.initializeEventListeners();
+                this.log('MCP Test Harness ready', 'info');
+            }
+            
+            initializeEventListeners() {
+                const uploadArea = document.getElementById('uploadArea');
+                const fileInput = document.getElementById('fileInput');
+                
+                // File upload handlers
+                uploadArea.addEventListener('click', () => fileInput.click());
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('dragover');
+                });
+                uploadArea.addEventListener('dragleave', () => {
+                    uploadArea.classList.remove('dragover');
+                });
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('dragover');
+                    this.handleFileUpload(e.dataTransfer.files);
+                });
+                
+                fileInput.addEventListener('change', (e) => {
+                    this.handleFileUpload(e.target.files);
+                });
+                
+                // Button handlers
+                document.getElementById('connectBtn').addEventListener('click', () => {
+                    this.connectToMCPServer();
+                });
+                
+                document.getElementById('listToolsBtn').addEventListener('click', () => {
+                    this.listTools();
+                });
+                
+                document.getElementById('clearLogBtn').addEventListener('click', () => {
+                    this.clearLog();
+                });
+                
+                document.getElementById('executeToolBtn').addEventListener('click', () => {
+                    this.executeTool();
+                });
+            }
+            
+            async handleFileUpload(files) {
+                if (files.length === 0) return;
+                
+                const file = files[0];
+                this.log(`Loading ADAM file: ${file.name}`, 'info');
+                
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    await this.loadADAMFile(arrayBuffer, file.name);
+                    
+                    // Show file info
+                    document.getElementById('fileName').textContent = file.name;
+                    document.getElementById('fileSize').textContent = this.formatBytes(file.size);
+                    document.getElementById('fileInfo').style.display = 'block';
+                    document.getElementById('connectBtn').disabled = false;
+                    
+                    this.log(`Successfully loaded ADAM file: ${file.name}`, 'success');
+                    
+                } catch (error) {
+                    this.log(`Failed to load ADAM file: ${error.message}`, 'error');
+                }
+            }
+            
+            async loadADAMFile(arrayBuffer, fileName) {
+                try {
+                    // Try to parse as WASM first
+                    const wasmModule = await WebAssembly.instantiate(arrayBuffer);
+                    this.log('WASM module loaded successfully', 'success');
+                    
+                    // Extract ADAM data from WASM memory
+                    // This is a simplified approach - real implementation would depend on WASM structure
+                    const memory = wasmModule.instance.exports.memory;
+                    const dataView = new DataView(memory.buffer);
+                    
+                    // Try to find JSON data in WASM memory
+                    const decoder = new TextDecoder();
+                    let jsonStart = -1;
+                    
+                    // Look for JSON start pattern
+                    for (let i = 0; i < memory.buffer.byteLength - 10; i++) {
+                        const char = String.fromCharCode(dataView.getUint8(i));
+                        if (char === '{') {
+                            try {
+                                const possibleJson = decoder.decode(memory.buffer.slice(i, i + 1000));
+                                if (possibleJson.includes('"sections"') || possibleJson.includes('"metadata"')) {
+                                    jsonStart = i;
+                                    break;
+                                }
+                            } catch (e) {
+                                // Continue searching
+                            }
+                        }
+                    }
+                    
+                    if (jsonStart >= 0) {
+                        // Extract and parse JSON data
+                        const jsonData = decoder.decode(memory.buffer.slice(jsonStart));
+                        const nullIndex = jsonData.indexOf('\0');
+                        const cleanJson = nullIndex > 0 ? jsonData.substring(0, nullIndex) : jsonData;
+                        
+                        try {
+                            this.adamData = JSON.parse(cleanJson);
+                            this.log('ADAM data extracted from WASM', 'success');
+                        } catch (e) {
+                            // Fallback: create mock ADAM structure
+                            this.createMockADAMData(fileName);
+                        }
+                    } else {
+                        this.createMockADAMData(fileName);
+                    }
+                    
+                } catch (error) {
+                    // Not a valid WASM file, try as raw JSON
+                    try {
+                        const text = new TextDecoder().decode(arrayBuffer);
+                        this.adamData = JSON.parse(text);
+                        this.log('ADAM JSON data loaded', 'success');
+                    } catch (e) {
+                        throw new Error('Invalid ADAM file format');
+                    }
+                }
+            }
+            
+            createMockADAMData(fileName) {
+                this.adamData = {
+                    metadata: {
+                        title: fileName,
+                        source: 'test-harness',
+                        created: new Date().toISOString(),
+                        format: 'adam-v1'
+                    },
+                    sections: [
+                        {
+                            id: 'section-1',
+                            type: 'text',
+                            content: 'Mock ADAM document for testing MCP tools',
+                            metadata: { confidence: 0.9 }
+                        }
+                    ],
+                    relationships: [],
+                    embeddings: {}
+                };
+                this.log('Created mock ADAM data for testing', 'info');
+            }
+            
+            async connectToMCPServer() {
+                const port = document.getElementById('serverPort').value;
+                const statusEl = document.getElementById('mcpStatus');
+                
+                try {
+                    statusEl.innerHTML = '<span class="status-indicator connecting"></span>Connecting...';
+                    this.log(`Attempting to connect to MCP HTTP Bridge on port ${port}`, 'info');
+                    
+                    // Check if MCP HTTP Bridge is running
+                    const healthResponse = await fetch(`http://localhost:${port}/health`);
+                    
+                    if (!healthResponse.ok) {
+                        throw new Error(`HTTP Bridge not available (${healthResponse.status})`);
+                    }
+                    
+                    const healthData = await healthResponse.json();
+                    this.log(`HTTP Bridge status: ${healthData.status}`, 'info');
+                    
+                    // Set the bridge URL first
+                    this.mcpBridgeUrl = `http://localhost:${port}`;
+                    
+                    // Start MCP server if we have ADAM data loaded
+                    if (this.adamData) {
+                        await this.startMCPServer(port);
+                    }
+                    this.isConnected = true;
+                    statusEl.innerHTML = '<span class="status-indicator connected"></span>Connected';
+                    document.getElementById('listToolsBtn').disabled = false;
+                    this.log('Connected to MCP HTTP Bridge', 'success');
+                    
+                } catch (error) {
+                    statusEl.innerHTML = '<span class="status-indicator disconnected"></span>Connection Failed';
+                    this.log(`Failed to connect to MCP HTTP Bridge: ${error.message}`, 'error');
+                    this.log('Make sure the MCP HTTP Bridge is running: node hack/mcp-http-bridge.js', 'info');
+                }
+            }
+            
+            async sendMCPMessage(message) {
+                if (!this.isConnected || !this.mcpBridgeUrl) {
+                    this.log('Not connected to MCP HTTP Bridge', 'error');
+                    return null;
+                }
+                
+                try {
+                    this.log(`→ ${JSON.stringify(message)}`, 'request');
+                    
+                    const response = await fetch(`${this.mcpBridgeUrl}/mcp/request`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(message)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.handleMCPMessage(data);
+                    return data;
+                    
+                } catch (error) {
+                    this.log(`MCP request failed: ${error.message}`, 'error');
+                    return null;
+                }
+            }
+            
+            async startMCPServer(port) {
+                try {
+                    this.log('Starting MCP server...', 'info');
+                    
+                    // For demo purposes, use a mock command
+                    // In real usage, you'd specify the actual MCP server command
+                    const startRequest = {
+                        command: 'node',
+                        args: ['mock-mcp-server.js'],
+                        adamFile: 'loaded-adam-file.wasm'
+                    };
+                    
+                    const response = await fetch(`${this.mcpBridgeUrl}/mcp/start`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(startRequest)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to start MCP server: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.log(`MCP server started: ${data.status}`, 'success');
+                    
+                } catch (error) {
+                    this.log(`Failed to start MCP server: ${error.message}`, 'error');
+                    throw error;
+                }
+            }
+            
+            handleMCPMessage(message) {
+                this.log(`← ${JSON.stringify(message, null, 2)}`, 'info');
+                
+                if (message.result && message.result.tools) {
+                    this.availableTools = message.result.tools || [];
+                    this.updateToolsList();
+                } else if (message.result) {
+                    this.log(`MCP result: ${JSON.stringify(message.result, null, 2)}`, 'success');
+                } else if (message.error) {
+                    this.log(`MCP error: ${JSON.stringify(message.error, null, 2)}`, 'error');
+                }
+            }
+            
+            async listTools() {
+                try {
+                    const response = await fetch(`${this.mcpBridgeUrl}/mcp/tools`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.handleMCPMessage(data);
+                    
+                } catch (error) {
+                    this.log(`Failed to list tools: ${error.message}`, 'error');
+                }
+            }
+            
+            updateToolsList() {
+                const toolsList = document.getElementById('toolsList');
+                
+                if (this.availableTools.length === 0) {
+                    toolsList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No tools available</div>';
+                    return;
+                }
+                
+                toolsList.innerHTML = this.availableTools.map(tool => `
+                    <div class="tool-item" onclick="testHarness.selectTool('${tool.name}')">
+                        <div class="tool-name">${tool.name}</div>
+                        <div class="tool-description">${tool.description || 'No description'}</div>
+                    </div>
+                `).join('');
+            }
+            
+            selectTool(toolName) {
+                this.selectedTool = this.availableTools.find(tool => tool.name === toolName);
+                if (!this.selectedTool) return;
+                
+                this.log(`Selected tool: ${toolName}`, 'info');
+                
+                const toolParams = document.getElementById('toolParams');
+                const paramInputs = document.getElementById('paramInputs');
+                
+                // Generate parameter inputs
+                const schema = this.selectedTool.inputSchema;
+                if (schema && schema.properties) {
+                    paramInputs.innerHTML = Object.entries(schema.properties).map(([key, prop]) => `
+                        <div class="input-group">
+                            <label>${key}${schema.required && schema.required.includes(key) ? ' *' : ''}:</label>
+                            <input type="text" id="param_${key}" placeholder="${prop.description || ''}" 
+                                   value="${this.getDefaultParamValue(key, prop)}">
+                        </div>
+                    `).join('');
+                } else {
+                    paramInputs.innerHTML = '<p>No parameters required</p>';
+                }
+                
+                toolParams.style.display = 'block';
+            }
+            
+            getDefaultParamValue(paramName, paramDef) {
+                // Provide some sensible defaults for common parameters
+                if (paramName.includes('query') || paramName.includes('search')) {
+                    return 'test search query';
+                }
+                if (paramName.includes('section') && this.adamData && this.adamData.sections.length > 0) {
+                    return this.adamData.sections[0].id;
+                }
+                if (paramName.includes('document') && this.adamData) {
+                    return JSON.stringify(this.adamData).substring(0, 100) + '...';
+                }
+                return paramDef.default || '';
+            }
+            
+            async executeTool() {
+                if (!this.selectedTool) {
+                    this.log('No tool selected', 'error');
+                    return;
+                }
+                
+                // Collect parameters
+                const params = {};
+                const schema = this.selectedTool.inputSchema;
+                
+                if (schema && schema.properties) {
+                    Object.keys(schema.properties).forEach(key => {
+                        const input = document.getElementById(`param_${key}`);
+                        if (input) {
+                            let value = input.value;
+                            
+                            // Try to parse as JSON if it looks like JSON
+                            if (value.startsWith('{') || value.startsWith('[')) {
+                                try {
+                                    value = JSON.parse(value);
+                                } catch (e) {
+                                    // Keep as string
+                                }
+                            }
+                            
+                            params[key] = value;
+                        }
+                    });
+                }
+                
+                // Add ADAM document context if tool might need it
+                if (this.adamData && !params.document && !params.adamDocument) {
+                    params.adamDocument = this.adamData;
+                }
+                
+                try {
+                    const response = await fetch(`${this.mcpBridgeUrl}/mcp/tools/${this.selectedTool.name}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(params)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.handleMCPMessage(data);
+                    
+                } catch (error) {
+                    this.log(`Failed to execute tool: ${error.message}`, 'error');
+                }
+            }
+            
+            generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substr(2);
+            }
+            
+            formatBytes(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            log(message, type = 'info') {
+                const messageLog = document.getElementById('messageLog');
+                const timestamp = new Date().toLocaleTimeString();
+                const messageEl = document.createElement('div');
+                messageEl.className = `message ${type}`;
+                messageEl.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+                messageLog.appendChild(messageEl);
+                messageLog.scrollTop = messageLog.scrollHeight;
+            }
+            
+            clearLog() {
+                document.getElementById('messageLog').innerHTML = '';
+                this.log('Log cleared', 'info');
+            }
+        }
+        
+        // Initialize the test harness
+        const testHarness = new MCPTestHarness();
+        
+        // Make it globally accessible for onclick handlers
+        window.testHarness = testHarness;
+    </script>
+</body>
+</html>

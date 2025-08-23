@@ -831,6 +831,43 @@ program
     }
   });
 
+program
+  .command('web')
+  .description('Start the ADAM Converter web server')
+  .option('-p, --port <port>', 'Server port', '3000')
+  .option('-h, --host <host>', 'Server host', '0.0.0.0')
+  .option('--max-file-size <size>', 'Maximum file size (e.g., 50mb)', '50mb')
+  .option('--temp-dir <dir>', 'Temporary directory', '/tmp/adam-converter')
+  .option('--log-level <level>', 'Log level (debug, info, warn, error)', 'info')
+  .option('--no-cors', 'Disable CORS')
+  .option('-v, --verbose', 'Verbose logging')
+  .action(async (options) => {
+    try {
+      // Dynamic import to avoid bundling web dependencies in CLI
+      const { default: ADAMWebServer } = await import('./web/server.js');
+      
+      if (options.verbose) {
+        logger.setLevel('debug');
+      }
+
+      const server = new ADAMWebServer({
+        port: parseInt(options.port),
+        host: options.host,
+        maxFileSize: options.maxFileSize,
+        tempDir: options.tempDir,
+        corsEnabled: !options.noCors,
+        logLevel: options.logLevel || (options.verbose ? 'debug' : 'info')
+      });
+
+      logger.info('🚀 Starting ADAM Converter Web Server...');
+      await server.start();
+
+    } catch (error) {
+      logger.error(`Web server error: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
 // Error handling
 program.exitOverride();
 

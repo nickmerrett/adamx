@@ -375,7 +375,9 @@ export class OutputFormatter {
     const index = {
       sections_by_type: {},
       sections_by_keyword: {},
-      sections_by_importance: {}
+      sections_by_importance: {},
+      sections_by_level: {},
+      document_outline: []
     };
 
     // Index by type
@@ -407,6 +409,24 @@ export class OutputFormatter {
       index.sections_by_importance[importance].push(section.id);
     }
 
+    // Index by heading level
+    for (const section of sections) {
+      if (section.type === 'heading' && section.level) {
+        const level = section.level;
+        if (!index.sections_by_level[level]) {
+          index.sections_by_level[level] = [];
+        }
+        index.sections_by_level[level].push({
+          id: section.id,
+          title: section.title || section.content.substring(0, 50) + '...',
+          level: level
+        });
+      }
+    }
+
+    // Build document outline from headings
+    index.document_outline = this.buildDocumentOutline(sections);
+
     // Add embedding index if sections have embeddings
     const sectionsWithEmbeddings = sections.filter(s => s.metadata?.embedding);
     if (sectionsWithEmbeddings.length > 0) {
@@ -421,6 +441,43 @@ export class OutputFormatter {
     }
 
     return index;
+  }
+
+  /**
+   * Build hierarchical document outline from heading sections
+   * @param {Array} sections - All sections
+   * @returns {Array} - Hierarchical outline
+   */
+  buildDocumentOutline(sections) {
+    const headingSections = sections.filter(s => s.type === 'heading' && s.level);
+    const outline = [];
+    const stack = [];
+
+    for (const section of headingSections) {
+      const outlineItem = {
+        id: section.id,
+        title: section.title || section.content.substring(0, 50) + '...',
+        level: section.level,
+        children: []
+      };
+
+      // Find the correct parent in the hierarchy
+      while (stack.length > 0 && stack[stack.length - 1].level >= section.level) {
+        stack.pop();
+      }
+
+      if (stack.length === 0) {
+        // Top level item
+        outline.push(outlineItem);
+      } else {
+        // Child of the last item in stack
+        stack[stack.length - 1].children.push(outlineItem);
+      }
+
+      stack.push(outlineItem);
+    }
+
+    return outline;
   }
 
   /**

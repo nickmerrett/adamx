@@ -1,0 +1,26 @@
+{
+  "name": "mcp-test-harness",
+  "version": "1.0.0",
+  "description": "HTTP bridge and test harness for MCP servers with ADAM files",
+  "type": "module",
+  "main": "mcp-http-bridge.js",
+  "scripts": {
+    "start": "node mcp-http-bridge.js",
+    "dev": "node --watch mcp-http-bridge.js",
+    "test": "echo \"Open mcp-test-harness.html in browser\" && exit 0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "mcp",
+    "adam",
+    "bridge",
+    "test",
+    "harness"
+  ],
+  "author": "ADAM MCP Test Team",
+  "license": "MIT"
+}

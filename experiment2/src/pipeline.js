@@ -40,9 +40,10 @@ export class ADAMPipeline {
    * Convert a document file to ADAM format
    * @param {string} filePath - Path to the input document
    * @param {object} metadata - Optional metadata overrides
+   * @param {string} [originalFilename] - Original filename for format detection
    * @returns {Promise<object>} - ADAM document object
    */
-  async convert(filePath, metadata = {}) {
+  async convert(filePath, metadata = {}, originalFilename) {
     try {
       this.logger.info(`Starting conversion of: ${filePath}`);
 
@@ -50,7 +51,7 @@ export class ADAMPipeline {
       this.logger.info('Stage 1: Parsing document...');
       let rawContent;
       try {
-        rawContent = await this.parser.parse(filePath);
+        rawContent = await this.parser.parse(filePath, originalFilename);
         this.logger.info(`✓ Stage 1 completed: Extracted ${rawContent.rawText?.length || 0} characters`);
       } catch (error) {
         this.logger.error(`✗ Stage 1 failed: ${error.message}`);

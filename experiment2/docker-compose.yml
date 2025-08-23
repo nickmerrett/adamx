@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  adam-converter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: adam-converter:latest
+    container_name: adam-converter
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+    
+    # Volume mounts for input/output
+    volumes:
+      - ./input:/app/input:ro          # Read-only input directory
+      - ./output:/app/output:rw        # Read-write output directory
+      - ./temp:/app/temp:rw           # Temporary processing directory
+    
+    # Working directory
+    working_dir: /app
+    
+    # Default command (can be overridden)
+    command: ["node", "src/cli.js", "--help"]
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Read-only root filesystem (except mounted volumes)
+    read_only: true
+    
+    # Temporary filesystems for writable areas
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /app/temp:noexec,nosuid,size=500m
+    
+    # Labels for organization
+    labels:
+      - "com.adam.service=converter"
+      - "com.adam.version=1.0.0"
+      - "com.adam.description=ADAM Document Converter with MCP"
+
+  # Web server service
+  adam-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: adam-converter:web
+    container_name: adam-web-server
+    
+    # Resource limits for web server
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Environment variables for web mode
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - PORT=3000
+      - HOST=0.0.0.0
+    
+    # Volume mounts for web server
+    volumes:
+      - ./input:/app/input:ro
+      - ./output:/app/output:rw
+      - ./temp:/app/temp:rw
+    
+    # Expose web server port
+    ports:
+      - "3000:3000"
+    
+    # Web server command
+    command: ["node", "src/web/server.js"]
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Healthcheck for web server
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Labels
+    labels:
+      - "com.adam.service=web-server"
+      - "com.adam.version=1.0.0"
+      - "com.adam.description=ADAM Web Converter API"
+
+  # Development service with different configuration
+  adam-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: adam-converter:dev
+    container_name: adam-converter-dev
+    
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+    
+    volumes:
+      - .:/app:rw                     # Full source mount for development
+      - /app/node_modules             # Anonymous volume for node_modules
+      - ./input:/app/input:ro
+      - ./output:/app/output:rw
+    
+    command: ["npm", "run", "dev"]
+    
+    # Development ports
+    ports:
+      - "3000:3000"
+    
+    # Allow for interactive debugging
+    stdin_open: true
+    tty: true
+    
+    profiles:
+      - dev
+
+# Named volumes for persistent data
+volumes:
+  adam_input:
+    driver: local
+  adam_output:
+    driver: local
+
+# Network configuration
+networks:
+  default:
+    name: adam-network
+    driver: bridge

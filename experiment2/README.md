@@ -163,6 +163,106 @@ node src/cli.js mcp-query document-mcp.wasm --query "bank charges" --limit 5
 node src/cli.js mcp-query document-mcp.wasm
 ```
 
+### Start the Web Server
+
+```bash
+# Start web server with default settings
+node src/cli.js web
+
+# Start with custom configuration
+node src/cli.js web --port 8080 --host localhost --max-file-size 100mb
+
+# Start with verbose logging
+node src/cli.js web --verbose --log-level debug
+```
+
+## Web Interface
+
+ADAM Converter includes a comprehensive web interface for document conversion through HTTP API endpoints. The web server provides both a user-friendly interface and RESTful API for programmatic access.
+
+### 🌐 Web Server Features
+
+- **Drag-and-Drop Interface**: Upload documents directly in your browser
+- **Multiple Output Formats**: Choose between JSON, WASM, or MCP-enabled WASM (default)
+- **Real-Time Progress**: Live status updates during document processing
+- **Batch Processing**: Upload and convert multiple documents simultaneously
+- **Download Management**: Direct download links for converted documents
+- **RESTful API**: Complete HTTP API for programmatic integration
+
+### 🔗 API Endpoints
+
+- **POST /api/convert** - Convert single document
+- **POST /api/batch** - Convert multiple documents
+- **GET /api/status/:jobId** - Check conversion status
+- **GET /api/download/:jobId** - Download converted document
+- **GET /health** - Health check endpoint
+- **GET /api** - API documentation
+- **GET /** - Web interface
+
+### 📱 Web Interface Usage
+
+1. **Start the server**: `node src/cli.js web`
+2. **Open browser**: Navigate to `http://localhost:3000`
+3. **Upload document**: Drag PDF/DOCX file or click to browse
+4. **Select format**: Choose output format (JSON, WASM, or MCP-WASM)
+5. **Convert**: Click convert and monitor real-time progress
+6. **Download**: Get your converted ADAM document
+
+### 🔧 Configuration Options
+
+```bash
+# Server configuration
+--port <port>              # Server port (default: 3000)
+--host <host>              # Server host (default: 0.0.0.0)
+--max-file-size <size>     # Maximum upload size (default: 50mb)
+--temp-dir <dir>           # Temporary directory for processing
+--log-level <level>        # Logging level: debug, info, warn, error
+--no-cors                  # Disable CORS for restricted environments
+--verbose                  # Enable verbose logging
+```
+
+### 🐳 Docker Web Deployment
+
+```bash
+# Start web server with Docker Compose
+docker-compose up adam-web
+
+# Custom Docker run for web server
+docker run -p 3000:3000 \
+  -v $(pwd)/input:/app/input:ro \
+  -v $(pwd)/output:/app/output:rw \
+  -v $(pwd)/temp:/app/temp:rw \
+  adam-converter \
+  node src/web/server.js
+```
+
+### 📊 API Usage Examples
+
+**Convert Document via API:**
+```bash
+# Upload and convert document
+curl -X POST \
+  -F "document=@document.pdf" \
+  -F "format=wasm-mcp" \
+  -F "removeEmbeddings=false" \
+  http://localhost:3000/api/convert
+
+# Check conversion status
+curl http://localhost:3000/api/status/adam_1692824501234_abc123def
+
+# Download result
+curl -O http://localhost:3000/api/download/adam_1692824501234_abc123def
+```
+
+**Batch Processing via API:**
+```bash
+curl -X POST \
+  -F "documents=@doc1.pdf" \
+  -F "documents=@doc2.pdf" \
+  -F "format=wasm-mcp" \
+  http://localhost:3000/api/batch
+```
+
 ## MCP Server Integration
 
 ADAM Converter features breakthrough integration with the Model Context Protocol (MCP), creating self-contained WebAssembly modules that embed both document data and query servers.
@@ -379,6 +479,7 @@ node src/cli.js mcp-server document-mcp.wasm --stdio
 | `unpack-mcp` | MCP WASM extraction | `--test-mcp`, `--verbose` |
 | `mcp-query` | Interactive querying | `--query`, `--tool`, `--limit` |
 | `mcp-server` | Standalone server | `--stdio`, `--verbose` |
+| `web` | HTTP server & API | `--port`, `--host`, `--max-file-size`, `--verbose` |
 
 ## Usage as Library
 

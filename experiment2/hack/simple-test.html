@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Test</title>
+</head>
+<body>
+    <h1>Simple JavaScript Test</h1>
+    <div id="status">Loading...</div>
+    <input type="file" id="fileInput" accept=".wasm,.json">
+    <div id="output"></div>
+
+    <script>
+        console.log('🚀 Script started');
+        
+        // Test basic functionality
+        try {
+            document.getElementById('status').textContent = 'JavaScript loaded successfully';
+            console.log('✅ DOM manipulation works');
+            
+            // Test file input
+            document.getElementById('fileInput').addEventListener('change', async (e) => {
+                console.log('📁 File selected:', e.target.files[0]?.name);
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    console.log('📊 File size:', arrayBuffer.byteLength, 'bytes');
+                    
+                    if (file.name.endsWith('.wasm')) {
+                        console.log('🔧 Processing WASM file...');
+                        const wasmModule = await WebAssembly.instantiate(arrayBuffer);
+                        console.log('✅ WASM instantiated');
+                        console.log('📋 WASM exports:', Object.keys(wasmModule.instance.exports));
+                        
+                        const exports = wasmModule.instance.exports;
+                        if (exports.get_data_ptr && exports.get_data_size) {
+                            const dataPtr = exports.get_data_ptr();
+                            const dataSize = exports.get_data_size();
+                            console.log('📍 Data pointer:', dataPtr, 'size:', dataSize);
+                            
+                            const memory = new Uint8Array(exports.memory.buffer);
+                            const data = memory.slice(dataPtr, dataPtr + dataSize);
+                            console.log('📄 First 16 bytes:', Array.from(data.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                            
+                            // Check if gzip
+                            if (data[0] === 0x1f && data[1] === 0x8b) {
+                                console.log('🗜️ Data is gzip compressed');
+                            } else {
+                                console.log('📝 Data appears uncompressed');
+                                const text = new TextDecoder('utf-8', { fatal: false }).decode(data.slice(0, 200));
+                                console.log('📖 Text preview:', text);
+                            }
+                        }
+                        
+                        document.getElementById('output').innerHTML = `
+                            <h3>WASM Analysis:</h3>
+                            <p>Exports: ${Object.keys(wasmModule.instance.exports).join(', ')}</p>
+                            <p>Memory size: ${wasmModule.instance.exports.memory?.buffer?.byteLength || 'N/A'} bytes</p>
+                        `;
+                    } else {
+                        console.log('📄 Processing JSON file...');
+                        const text = new TextDecoder().decode(arrayBuffer);
+                        const json = JSON.parse(text);
+                        console.log('✅ JSON parsed, format:', json.format);
+                        console.log('📊 Sections:', json.sections?.length || 0);
+                        
+                        document.getElementById('output').innerHTML = `
+                            <h3>JSON Analysis:</h3>
+                            <p>Format: ${json.format || 'Unknown'}</p>
+                            <p>Sections: ${json.sections?.length || 0}</p>
+                            <p>Has metadata: ${!!json.metadata}</p>
+                        `;
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ File processing error:', error);
+                    document.getElementById('output').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                }
+            });
+            
+        } catch (error) {
+            console.error('❌ Script error:', error);
+            document.getElementById('status').textContent = 'JavaScript error: ' + error.message;
+        }
+    </script>
+</body>
+</html>

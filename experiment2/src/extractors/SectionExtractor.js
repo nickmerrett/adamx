@@ -53,7 +53,7 @@ export class SectionExtractor {
       }
 
       // Add section metadata
-      await this.enrichSections(sections, documentContent);
+      await this.enrichSections(sections);
 
       this.stats.sectionsCreated += sections.length;
       this.stats.processingTime += Date.now() - startTime;
@@ -227,12 +227,8 @@ export class SectionExtractor {
   detectParagraphType(text) {
     const trimmed = text.trim();
 
-    // Check for headings (simple heuristics)
-    if (trimmed.length < 100 && 
-        (trimmed.endsWith(':') || 
-         trimmed.match(/^[A-Z][A-Za-z\s]{5,50}$/) ||
-         trimmed.match(/^\d+\.\s/) ||
-         trimmed.match(/^[IVX]+\.\s/))) {
+    // Check for headings with enhanced detection
+    if (this.isHeading(trimmed)) {
       return 'heading';
     }
 
@@ -258,26 +254,153 @@ export class SectionExtractor {
   }
 
   /**
-   * Detect heading level
+   * Enhanced heading detection with comprehensive patterns
+   * @param {string} text - Text to analyze
+   * @returns {boolean} - True if text is a heading
+   */
+  isHeading(text) {
+    const trimmed = text.trim();
+    
+    // Skip empty text
+    if (!trimmed) return false;
+    
+    // Skip very long text (unlikely to be headings)
+    if (trimmed.length > 200) return false;
+
+    // Pattern 1: Section headers with numbers (e.g., "1. Introduction", "2.1 Overview")
+    if (trimmed.match(/^\d+(\.\d+)*\.?\s+[A-Z]/)) return true;
+
+    // Pattern 2: Roman numeral headers (e.g., "I. Introduction", "IV. Conclusions")
+    if (trimmed.match(/^[IVX]+\.?\s+[A-Z]/)) return true;
+
+    // Pattern 3: Letters as section markers (e.g., "A. Overview", "B) Details")
+    if (trimmed.match(/^[A-Z][\.\)]\s+[A-Z]/)) return true;
+
+    // Pattern 4: Headers ending with colon
+    if (trimmed.length < 100 && trimmed.endsWith(':') && !trimmed.includes('.')) return true;
+
+    // Pattern 5: All caps headers (but not too long)
+    if (trimmed.length < 80 && trimmed === trimmed.toUpperCase() && 
+        trimmed.match(/^[A-Z\s\d\-]+$/) && trimmed.split(' ').length <= 8) return true;
+
+    // Pattern 6: Title case short sentences (likely headings)
+    if (trimmed.length < 100 && this.isTitleCase(trimmed) && 
+        !trimmed.includes('.') && trimmed.split(' ').length <= 10) return true;
+
+    // Pattern 7: Common section keywords
+    const sectionKeywords = [
+      'introduction', 'overview', 'summary', 'conclusion', 'background',
+      'methodology', 'results', 'discussion', 'references', 'appendix',
+      'abstract', 'executive summary', 'table of contents', 'acknowledgments',
+      'terms and conditions', 'important changes', 'section', 'chapter',
+      'part', 'guide to', 'how to', 'what is', 'getting started'
+    ];
+    
+    const lowerText = trimmed.toLowerCase();
+    if (trimmed.length < 150 && sectionKeywords.some(keyword => 
+        lowerText.startsWith(keyword) || lowerText.includes(keyword))) {
+      // Additional check: should look like a heading structure
+      if (trimmed.match(/^[A-Z]/) || trimmed.includes('–') || trimmed.includes('-')) {
+        return true;
+      }
+    }
+
+    // Pattern 8: Numbered lists that are actually section headers
+    if (trimmed.match(/^\d+\.\s+[A-Z][^.]*$/) && trimmed.length < 100) return true;
+
+    // Pattern 9: Headers with special separators
+    if (trimmed.match(/^[A-Z][^.]*\s*[–—-]\s*[A-Z]/)) return true;
+
+    return false;
+  }
+
+  /**
+   * Check if text follows title case pattern
+   * @param {string} text - Text to check
+   * @returns {boolean} - True if title case
+   */
+  isTitleCase(text) {
+    const words = text.split(/\s+/);
+    const titleCaseWords = words.filter(word => {
+      // Skip short connector words
+      const connectors = ['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with'];
+      if (connectors.includes(word.toLowerCase()) && word !== words[0]) {
+        return word === word.toLowerCase();
+      }
+      return word.charAt(0) === word.charAt(0).toUpperCase();
+    });
+    
+    return titleCaseWords.length >= words.length * 0.7; // At least 70% title case
+  }
+
+  /**
+   * Detect heading level with enhanced hierarchy detection
    * @param {string} text - Text to analyze
    * @returns {number|null} - Heading level or null
    */
   detectHeadingLevel(text) {
     const trimmed = text.trim();
 
-    // Roman numerals (level 1)
-    if (trimmed.match(/^[IVX]+\.\s/)) return 1;
+    // Only assign levels to detected headings
+    if (!this.isHeading(trimmed)) return null;
 
-    // Numbers with periods (level 2)
-    if (trimmed.match(/^\d+\.\s/)) return 2;
+    // Level 1: Main section headers
+    // Roman numerals (I, II, III, IV, etc.)
+    if (trimmed.match(/^[IVX]+\.?\s/)) return 1;
+    
+    // Single digit main sections (1. Introduction, 2. Overview)
+    if (trimmed.match(/^\d+\.\s+[A-Z]/)) return 1;
+    
+    // All caps headers (INTRODUCTION, OVERVIEW)
+    if (trimmed.length < 80 && trimmed === trimmed.toUpperCase() && 
+        trimmed.match(/^[A-Z\s\d\-]+$/) && trimmed.split(' ').length <= 8) return 1;
+    
+    // Major section keywords at start
+    const level1Keywords = [
+      'introduction', 'overview', 'summary', 'conclusion', 'background',
+      'executive summary', 'table of contents', 'abstract', 'references',
+      'appendix', 'acknowledgments', 'terms and conditions'
+    ];
+    const lowerText = trimmed.toLowerCase();
+    if (level1Keywords.some(keyword => lowerText.startsWith(keyword))) return 1;
 
-    // Short sentences ending with colon (level 3)
-    if (trimmed.length < 80 && trimmed.endsWith(':')) return 3;
+    // Level 2: Sub-sections
+    // Multi-part numbering (1.1, 2.1, 3.2, etc.)
+    if (trimmed.match(/^\d+\.\d+\.?\s/)) return 2;
+    
+    // Letter subsections (A. Overview, B. Details)
+    if (trimmed.match(/^[A-Z][\.\)]\s/)) return 2;
+    
+    // Headers with dash separators
+    if (trimmed.match(/^[A-Z][^.]*\s*[–—-]\s*[A-Z]/)) return 2;
+    
+    // Level 2 section keywords
+    const level2Keywords = [
+      'section', 'chapter', 'part', 'guide to', 'how to', 'what is',
+      'getting started', 'important changes', 'daily limits', 'features and benefits'
+    ];
+    if (level2Keywords.some(keyword => lowerText.includes(keyword))) return 2;
 
-    // All caps short text (level 2)
-    if (trimmed.length < 50 && trimmed === trimmed.toUpperCase()) return 2;
+    // Level 3: Sub-sub-sections and minor headings
+    // Three-part numbering (1.1.1, 2.3.1, etc.)
+    if (trimmed.match(/^\d+\.\d+\.\d+\.?\s/)) return 3;
+    
+    // Headers ending with colon (typically field labels or minor sections)
+    if (trimmed.length < 100 && trimmed.endsWith(':') && !trimmed.includes('.')) return 3;
+    
+    // Short title case headers (likely minor sections)
+    if (trimmed.length < 60 && this.isTitleCase(trimmed) && 
+        !trimmed.includes('.') && trimmed.split(' ').length <= 6) return 3;
 
-    return null;
+    // Level 4: Minor subsections
+    // Four-part numbering or deeper
+    if (trimmed.match(/^\d+(\.\d+){3,}\.?\s/)) return 4;
+    
+    // Very short headers (likely field labels)
+    if (trimmed.length < 40 && trimmed.endsWith(':')) return 4;
+
+    // Default to level 2 for detected headings without specific patterns
+    return 2;
   }
 
   /**
@@ -313,10 +436,9 @@ export class SectionExtractor {
    * @returns {object} - Section object
    */
   createTextSection(text, metadata = {}) {
-    return {
+    const section = {
       id: uuidv4(),
       type: metadata.type || 'paragraph',
-      level: metadata.level,
       content: text,
       metadata: {
         importance: this.assessImportance(text),
@@ -335,6 +457,37 @@ export class SectionExtractor {
         })
       }
     };
+
+    // Add level to section root if it's a heading with a level
+    if (metadata.level && metadata.type === 'heading') {
+      section.level = metadata.level;
+      // Also add title for headings (cleaned up text)
+      section.title = this.extractHeadingTitle(text);
+    }
+
+    return section;
+  }
+
+  /**
+   * Extract clean title from heading text
+   * @param {string} text - Heading text
+   * @returns {string} - Clean title
+   */
+  extractHeadingTitle(text) {
+    let title = text.trim();
+    
+    // Remove numbering prefixes
+    title = title.replace(/^\d+(\.\d+)*\.?\s*/, '');
+    title = title.replace(/^[IVX]+\.?\s*/, '');
+    title = title.replace(/^[A-Z][\.\)]\s*/, '');
+    
+    // Remove trailing colons
+    title = title.replace(/:$/, '');
+    
+    // Remove section separators
+    title = title.replace(/\s*[–—-]\s*/, ' - ');
+    
+    return title.trim();
   }
 
   /**
@@ -689,9 +842,8 @@ export class SectionExtractor {
   /**
    * Enrich sections with additional metadata
    * @param {Array} sections - Array of sections
-   * @param {object} documentContent - Original document content
    */
-  async enrichSections(sections, documentContent) {
+  async enrichSections(sections) {
     // Add sequential IDs and positions
     sections.forEach((section, index) => {
       section.metadata.sequence_number = index;

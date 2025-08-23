@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADAM Document Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            line-height: 1.6;
+            color: #333;
+            background: #fafafa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 300;
+        }
+
+        .upload-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            min-height: calc(100vh - 80px);
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 25px;
+            height: fit-content;
+            position: sticky;
+            top: 110px;
+        }
+
+        .sidebar h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+
+        .metadata {
+            margin-bottom: 25px;
+        }
+
+        .metadata-item {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .metadata-label {
+            font-weight: bold;
+            color: #7f8c8d;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .metadata-value {
+            color: #2c3e50;
+            word-wrap: break-word;
+        }
+
+        .toc {
+            list-style: none;
+        }
+
+        .toc-item {
+            padding: 8px 12px;
+            margin: 2px 0;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            border-left: 3px solid transparent;
+        }
+
+        .toc-item:hover {
+            background: #ecf0f1;
+            border-left-color: #3498db;
+        }
+
+        .toc-item.active {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+            color: #1976d2;
+        }
+
+        .content {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .document-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 30px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .document-title {
+            font-size: 28px;
+            font-weight: 400;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .document-meta {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .document-body {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            scroll-margin-top: 120px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .section-number {
+            background: #3498db;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .section-content {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #444;
+            text-align: justify;
+            margin-bottom: 20px;
+        }
+        
+        .section-content p {
+            margin-bottom: 15px;
+        }
+        
+        .section-content:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-heading {
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 30px 0 20px 0;
+            line-height: 1.3;
+        }
+
+        .section-heading.h1 {
+            font-size: 32px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .section-heading.h2 {
+            font-size: 28px;
+            border-bottom: 2px solid #95a5a6;
+            padding-bottom: 8px;
+        }
+
+        .section-heading.h3 {
+            font-size: 24px;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 6px;
+        }
+
+        .section-heading.h4 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .section-heading.h5 {
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .section-heading.h6 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .section-metadata {
+            background: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .section-metadata h5 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .metadata-grid .item {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .metadata-grid .label {
+            font-weight: bold;
+            color: #6c757d;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .upload-area {
+            text-align: center;
+            padding: 60px 30px;
+            color: #6c757d;
+        }
+
+        .upload-area.dragover {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.7;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #adb5bd;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .search-box {
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: #3498db;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 1px 3px;
+            border-radius: 2px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+
+        .stat-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .relationships {
+            margin-top: 20px;
+        }
+
+        .relationship-item {
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: #e8f4f8;
+            border-radius: 5px;
+            font-size: 13px;
+            border-left: 3px solid #17a2b8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 20px 15px;
+            }
+
+            .sidebar {
+                position: static;
+                order: 2;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .document-title {
+                font-size: 24px;
+            }
+
+            .section-title {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>📖 ADAM Document Viewer</h1>
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                📁 Upload Document
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="content">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Drop your ADAM document here</div>
+                <div class="upload-hint">Supports WASM and JSON formats</div>
+                <input type="file" id="fileInput" class="file-input" accept=".wasm,.adam.wasm,.json,.adam.json">
+            </div>
+
+            <div id="documentContent" style="display: none;">
+                <div class="document-header">
+                    <div class="document-title" id="documentTitle">Document Title</div>
+                    <div class="document-meta" id="documentMeta">Document metadata</div>
+                </div>
+                <div class="document-body" id="documentBody">
+                    <!-- Sections will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <script>
+        class ADAMDocumentViewer {
+            constructor() {
+                try {
+                    console.log('Constructor: Starting initialization...');
+                    this.adamDocument = null;
+                    this.searchTerm = '';
+                    this.currentSection = null;
+                    
+                    console.log('Constructor: Initializing event listeners...');
+                    this.initializeEventListeners();
+                    console.log('Constructor: Initialization complete');
+                    
+                } catch (error) {
+                    console.error('Constructor error:', error);
+                    throw error;
+                }
+            }
+
+            initializeEventListeners() {
+                try {
+                    console.log('Event listeners: Finding DOM elements...');
+                    const uploadArea = document.getElementById('uploadArea');
+                    const fileInput = document.getElementById('fileInput');
+
+                    console.log('Event listeners: DOM elements found:', {
+                        uploadArea: !!uploadArea,
+                        fileInput: !!fileInput
+                    });
+
+                    // File upload handlers
+                if (uploadArea && fileInput) {
+                    console.log('Event listeners: Setting up file upload handlers...');
+                    uploadArea.addEventListener('click', () => fileInput.click());
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('dragover');
+                });
+                uploadArea.addEventListener('dragleave', () => {
+                    uploadArea.classList.remove('dragover');
+                });
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('dragover');
+                    this.handleFileUpload(e.dataTransfer.files);
+                });
+
+                    fileInput.addEventListener('change', (e) => {
+                        console.log('File selected:', e.target.files.length, 'files');
+                        this.handleFileUpload(e.target.files);
+                    });
+                } else {
+                    console.warn('Upload elements not found, skipping file upload handlers');
+                }
+
+                // Search functionality removed for clean document view
+
+                // Smooth scrolling for TOC
+                console.log('Event listeners: Setting up TOC click handler...');
+                document.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('toc-item') && e.target.dataset.sectionId) {
+                        e.preventDefault();
+                        this.scrollToSection(e.target.dataset.sectionId);
+                    }
+                });
+                
+                console.log('Event listeners: All handlers setup complete');
+                
+                } catch (error) {
+                    console.error('Event listener initialization error:', error);
+                    throw error;
+                }
+            }
+
+            async handleFileUpload(files) {
+                if (files.length === 0) return;
+
+                const file = files[0];
+                
+                // Show loading
+                this.showLoading();
+
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    await this.loadADAMDocument(arrayBuffer, file.name);
+                    this.renderDocument();
+                } catch (error) {
+                    console.error('Failed to load document:', error);
+                    alert(`Failed to load document: ${error.message}`);
+                    this.showUploadArea();
+                }
+            }
+
+            async loadADAMDocument(arrayBuffer, fileName) {
+                try {
+                    // Add timeout wrapper for WASM processing
+                    const loadWithTimeout = async (processFunc, timeoutMs = 10000) => {
+                        return Promise.race([
+                            processFunc(),
+                            new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('Loading timeout')), timeoutMs)
+                            )
+                        ]);
+                    };
+
+                    // Try to parse as WASM first
+                    if (fileName.endsWith('.wasm')) {
+                        try {
+                            this.adamDocument = await loadWithTimeout(async () => {
+                                const wasmModule = await WebAssembly.instantiate(arrayBuffer);
+                                return await this.extractDataFromWasm(wasmModule);
+                            });
+                        } catch (wasmError) {
+                            console.warn('WASM parsing failed, trying as raw binary:', wasmError.message);
+                            // Fallback: try to find JSON in raw binary data
+                            const text = new TextDecoder('utf-8', { fatal: false }).decode(arrayBuffer);
+                            
+                            // Try multiple patterns for ADAM documents
+                            const patterns = [
+                                /\{[\s\S]*"sections"[\s\S]*\}/,
+                                /\{[\s\S]*"format"\s*:\s*"adam-document"[\s\S]*\}/,
+                                /\{[\s\S]*"format"\s*:\s*"agent-document"[\s\S]*\}/,
+                                /\{[\s\S]*"metadata"[\s\S]*"sections"[\s\S]*\}/
+                            ];
+                            
+                            let jsonMatch = null;
+                            for (const pattern of patterns) {
+                                jsonMatch = text.match(pattern);
+                                if (jsonMatch) break;
+                            }
+                            
+                            if (jsonMatch) {
+                                // Try to find the complete JSON by matching braces
+                                let jsonStr = jsonMatch[0];
+                                let braceCount = 0;
+                                let endIndex = -1;
+                                
+                                for (let i = 0; i < jsonStr.length; i++) {
+                                    if (jsonStr[i] === '{') braceCount++;
+                                    else if (jsonStr[i] === '}') {
+                                        braceCount--;
+                                        if (braceCount === 0) {
+                                            endIndex = i + 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if (endIndex > 0) {
+                                    jsonStr = jsonStr.substring(0, endIndex);
+                                }
+                                
+                                this.adamDocument = JSON.parse(jsonStr);
+                            } else {
+                                throw new Error(`WASM processing failed: ${wasmError.message}`);
+                            }
+                        }
+                    } else {
+                        // Parse as JSON
+                        const text = new TextDecoder().decode(arrayBuffer);
+                        this.adamDocument = JSON.parse(text);
+                    }
+
+                    // Validate ADAM structure
+                    if (!this.adamDocument || typeof this.adamDocument !== 'object') {
+                        throw new Error('Invalid ADAM document: not a valid object');
+                    }
+                    
+                    // Check for valid ADAM format
+                    const validFormats = ['adam-document', 'agent-document', 'ADAM'];
+                    if (this.adamDocument.format && !validFormats.includes(this.adamDocument.format)) {
+                        console.warn(`Unknown document format: ${this.adamDocument.format}, trying to parse anyway`);
+                    }
+                    
+                    if (!this.adamDocument.sections || !Array.isArray(this.adamDocument.sections)) {
+                        throw new Error('Invalid ADAM document: missing or invalid sections array');
+                    }
+
+                    if (this.adamDocument.sections.length === 0) {
+                        throw new Error('Invalid ADAM document: no sections found');
+                    }
+
+                    console.log('ADAM document loaded successfully:', {
+                        sections: this.adamDocument.sections.length,
+                        metadata: !!this.adamDocument.metadata,
+                        relationships: this.adamDocument.relationships?.length || 0
+                    });
+
+                } catch (error) {
+                    throw new Error(`Invalid ADAM document format: ${error.message}`);
+                }
+            }
+
+            async extractDataFromWasm(wasmModule) {
+                try {
+                    const exports = wasmModule.instance.exports;
+                    const memory = exports.memory;
+                    
+                    console.log('WASM exports available:', Object.keys(exports));
+                    console.log('Memory buffer size:', memory.buffer.byteLength);
+                    
+                    // First try to use WASM exports for data extraction (faster)
+                    if (exports.get_data_ptr && exports.get_data_size) {
+                        try {
+                            const dataPtr = exports.get_data_ptr();
+                            const dataSize = exports.get_data_size();
+                            
+                            console.log('WASM data pointer:', dataPtr, 'size:', dataSize);
+                            
+                            if (dataPtr && dataSize > 0 && dataPtr < memory.buffer.byteLength) {
+                                const memoryView = new Uint8Array(memory.buffer);
+                                const jsonData = memoryView.slice(dataPtr, Math.min(dataPtr + dataSize, memory.buffer.byteLength));
+                                
+                                // Check if data is gzip compressed (starts with 0x1f, 0x8b)
+                                let text;
+                                console.log('Data signature:', jsonData[0]?.toString(16), jsonData[1]?.toString(16));
+                                
+                                if (jsonData[0] === 0x1f && jsonData[1] === 0x8b) {
+                                    console.log('Detected gzip compressed data, attempting decompression...');
+                                    try {
+                                        // Try to decompress using DecompressionStream (modern browsers)
+                                        if (typeof DecompressionStream !== 'undefined') {
+                                            const stream = new DecompressionStream('gzip');
+                                            const decompressed = await new Response(jsonData.buffer.slice(jsonData.byteOffset, jsonData.byteOffset + jsonData.byteLength))
+                                                .body
+                                                .pipeThrough(stream);
+                                            const arrayBuffer = await new Response(decompressed).arrayBuffer();
+                                            text = new TextDecoder('utf-8', { fatal: false }).decode(arrayBuffer);
+                                            console.log('Gzip decompression successful, decompressed size:', arrayBuffer.byteLength);
+                                        } else if (typeof pako !== 'undefined') {
+                                            console.log('Using pako library for gzip decompression...');
+                                            const decompressed = pako.inflate(jsonData);
+                                            text = new TextDecoder('utf-8', { fatal: false }).decode(decompressed);
+                                            console.log('Pako decompression successful, decompressed size:', decompressed.length);
+                                        } else {
+                                            console.warn('No gzip decompression available');
+                                            // Try to decode as-is (might be readable text despite compression)
+                                            text = new TextDecoder('utf-8', { fatal: false }).decode(jsonData);
+                                        }
+                                    } catch (e) {
+                                        console.warn('Gzip decompression failed:', e.message);
+                                        // Try to decode as-is 
+                                        text = new TextDecoder('utf-8', { fatal: false }).decode(jsonData);
+                                    }
+                                } else {
+                                    console.log('Data appears to be uncompressed');
+                                    text = new TextDecoder('utf-8', { fatal: false }).decode(jsonData);
+                                }
+                                
+                                console.log('Extracted text preview:', text.substring(0, 200));
+                                
+                                const data = JSON.parse(text);
+                                if (data.sections || data.metadata || data.format) {
+                                    console.log('Successfully extracted ADAM data via exports');
+                                    return data;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Failed to extract via WASM exports:', e.message);
+                        }
+                    }
+                    
+                    // Fallback: comprehensive memory search
+                    console.log('Falling back to memory search...');
+                    const decoder = new TextDecoder('utf-8', { fatal: false });
+                    const memoryView = new Uint8Array(memory.buffer);
+                    
+                    // Search patterns for ADAM documents
+                    const searchPatterns = [
+                        '"format":"adam-document"',
+                        '"format":"agent-document"',
+                        '"sections":[',
+                        '"metadata":{',
+                        '"format":"ADAM"'
+                    ];
+                    
+                    // Convert memory to text for pattern searching
+                    const memoryText = decoder.decode(memoryView);
+                    console.log('Memory text length:', memoryText.length);
+                    
+                    // Find potential JSON start positions
+                    const candidates = [];
+                    for (const pattern of searchPatterns) {
+                        let index = memoryText.indexOf(pattern);
+                        while (index !== -1) {
+                            // Find the start of the JSON object
+                            let jsonStart = index;
+                            while (jsonStart > 0 && memoryText[jsonStart] !== '{') {
+                                jsonStart--;
+                            }
+                            if (memoryText[jsonStart] === '{') {
+                                candidates.push(jsonStart);
+                            }
+                            index = memoryText.indexOf(pattern, index + 1);
+                        }
+                    }
+                    
+                    // Remove duplicates and sort
+                    const uniqueCandidates = [...new Set(candidates)].sort((a, b) => a - b);
+                    console.log('Found', uniqueCandidates.length, 'JSON candidates');
+                    
+                    // Try to parse each candidate
+                    for (const startPos of uniqueCandidates) {
+                        try {
+                            // Extract JSON by matching braces
+                            let braceCount = 0;
+                            let endPos = startPos;
+                            
+                            for (let i = startPos; i < memoryText.length; i++) {
+                                if (memoryText[i] === '{') {
+                                    braceCount++;
+                                } else if (memoryText[i] === '}') {
+                                    braceCount--;
+                                    if (braceCount === 0) {
+                                        endPos = i + 1;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (braceCount === 0 && endPos > startPos) {
+                                const jsonText = memoryText.substring(startPos, endPos);
+                                console.log('Trying to parse JSON from position', startPos, 'length:', jsonText.length);
+                                
+                                const data = JSON.parse(jsonText);
+                                if (data && (data.sections || data.metadata || data.format)) {
+                                    console.log('Successfully extracted ADAM data from memory search');
+                                    return data;
+                                }
+                            }
+                        } catch (e) {
+                            // Continue to next candidate
+                            continue;
+                        }
+                    }
+                    
+                    throw new Error('No valid ADAM data found in WASM memory');
+                } catch (error) {
+                    console.error('WASM extraction error:', error);
+                    throw new Error(`Failed to extract ADAM data from WASM: ${error.message}`);
+                }
+            }
+
+            renderDocument() {
+                try {
+                    console.log('Starting document render...');
+                    this.showDocument(); // Show document structure first
+                    this.renderDocumentContent();
+                    console.log('Document render complete');
+                } catch (error) {
+                    console.error('Document render error:', error);
+                    throw error;
+                }
+            }
+
+            updateMetadata() {
+                const metadata = this.adamDocument.metadata || {};
+                const metadataDiv = document.getElementById('documentMetadata');
+                
+                const items = [
+                    ['Title', metadata.title || 'Untitled Document'],
+                    ['Format', metadata.format || 'ADAM'],
+                    ['Created', metadata.created ? new Date(metadata.created).toLocaleDateString() : 'Unknown'],
+                    ['Source', metadata.source || 'Unknown'],
+                    ['Version', metadata.version || '1.0']
+                ];
+
+                metadataDiv.innerHTML = items.map(([label, value]) => `
+                    <div class="metadata-item">
+                        <span class="metadata-label">${label}</span>
+                        <span class="metadata-value">${value}</span>
+                    </div>
+                `).join('');
+            }
+
+            updateStats() {
+                const sections = this.adamDocument.sections || [];
+                const relationships = this.adamDocument.relationships || [];
+                
+                const totalWords = sections.reduce((count, section) => {
+                    return count + (section.content || '').split(/\s+/).length;
+                }, 0);
+
+                document.getElementById('sectionCount').textContent = sections.length;
+                document.getElementById('wordCount').textContent = totalWords.toLocaleString();
+                document.getElementById('relationshipCount').textContent = relationships.length;
+            }
+
+            renderTableOfContents() {
+                const sections = this.adamDocument.sections || [];
+                const tocList = document.getElementById('tableOfContents');
+                
+                if (sections.length === 0) {
+                    tocList.innerHTML = '<li class="toc-item">No sections found</li>';
+                    return;
+                }
+
+                tocList.innerHTML = sections.map((section, index) => {
+                    const title = section.title || `Section ${index + 1}`;
+                    return `
+                        <li class="toc-item" data-section-id="${section.id || index}">
+                            ${title}
+                        </li>
+                    `;
+                }).join('');
+            }
+
+            renderDocumentContent() {
+                const sections = this.adamDocument.sections || [];
+                console.log(`Rendering ${sections.length} sections...`);
+
+                // Render sections
+                const documentBody = document.getElementById('documentBody');
+                if (documentBody) {
+                    documentBody.innerHTML = sections.map((section, index) => this.renderSection(section, index)).join('');
+                    console.log('Content rendered successfully');
+                } else {
+                    console.error('documentBody element not found');
+                }
+            }
+
+            renderSection(section, index) {
+                const content = section.content || '';
+                
+                // Skip empty sections
+                if (!content.trim()) {
+                    return '';
+                }
+
+                // Extract heading and get remaining content
+                const extractedHeading = this.extractHeadingFromContent(content, index);
+                const headingHtml = this.renderSectionHeading(section, index);
+                
+                // Remove extracted heading from content to avoid duplication
+                let cleanContent = content;
+                if (extractedHeading && content.startsWith(extractedHeading)) {
+                    cleanContent = content.substring(extractedHeading.length).replace(/^[\s\n\r]*/, '');
+                }
+                
+                return `
+                    ${headingHtml}
+                    <div class="section-content">${this.formatContent(cleanContent)}</div>
+                `;
+            }
+
+            renderSectionHeading(section, index) {
+                // Check if section has a title
+                let title = section.title || section.heading;
+                
+                // If no title, try to extract from content
+                if (!title && section.content) {
+                    title = this.extractHeadingFromContent(section.content, index);
+                }
+                
+                if (!title) return '';
+
+                // Determine heading level based on section type or hierarchy
+                let headingLevel = 'h2'; // default
+                
+                if (section.type) {
+                    switch (section.type.toLowerCase()) {
+                        case 'title':
+                        case 'document_title':
+                        case 'main_title':
+                        case 'heading':
+                            headingLevel = 'h1';
+                            break;
+                        case 'chapter':
+                        case 'section':
+                        case 'major_heading':
+                            headingLevel = 'h2';
+                            break;
+                        case 'subsection':
+                        case 'sub_heading':
+                            headingLevel = 'h3';
+                            break;
+                        case 'subsubsection':
+                        case 'minor_heading':
+                            headingLevel = 'h4';
+                            break;
+                        case 'paragraph_heading':
+                            headingLevel = 'h5';
+                            break;
+                        case 'paragraph':
+                        default:
+                            // For paragraphs, try to infer from title structure
+                            if (title.match(/^(Chapter|Section|Part)\s+\d+/i)) {
+                                headingLevel = 'h2';
+                            } else if (title.match(/^\d+\.?\d*\.?\s/)) {
+                                headingLevel = 'h3'; // Numbered sections
+                            } else if (title.match(/^[A-Z][A-Za-z\s]{0,40}:/) || title.length < 50) {
+                                headingLevel = 'h4'; // Short titles or labels
+                            } else {
+                                return ''; // Don't show heading for long paragraph content
+                            }
+                    }
+                }
+
+                // Check for level in metadata
+                if (section.metadata && section.metadata.level) {
+                    const level = parseInt(section.metadata.level);
+                    if (level >= 1 && level <= 6) {
+                        headingLevel = `h${level}`;
+                    }
+                }
+
+                return `<div class="section-heading ${headingLevel}">${this.escapeHtml(title)}</div>`;
+            }
+
+            extractHeadingFromContent(content, index) {
+                if (!content) return null;
+                
+                // Look for potential headings at the start of content
+                const lines = content.split(/[\n\r]+/);
+                const firstLine = lines[0]?.trim();
+                
+                if (!firstLine) return null;
+                
+                // Check if first line looks like a heading
+                const headingPatterns = [
+                    /^(Chapter|Section|Part)\s+\d+/i,           // "Chapter 1", "Section 2"
+                    /^\d+\.?\d*\.?\s+[A-Z]/,                   // "1. Introduction", "2.1 Overview" 
+                    /^[A-Z][A-Za-z\s]{2,40}:$/,               // "Important Changes:"
+                    /^[A-Z]{2,}[\s\-–—]+/,                     // "INTRODUCTION - "
+                    /^•\s*[A-Z][A-Za-z\s]{2,40}$/,            // "• Section Title"
+                ];
+                
+                for (const pattern of headingPatterns) {
+                    if (pattern.test(firstLine)) {
+                        // Extract the heading text
+                        let heading = firstLine.replace(/^•\s*/, '').replace(/:$/, '').trim();
+                        if (heading.length > 0 && heading.length <= 80) {
+                            return heading;
+                        }
+                    }
+                }
+                
+                // If first line is short and starts with capital letter, might be heading
+                if (firstLine.length <= 80 && firstLine.length >= 5 && /^[A-Z]/.test(firstLine) && !firstLine.endsWith('.')) {
+                    // Check if it's likely a sentence vs a heading
+                    if (!firstLine.match(/\s+(the|a|an|is|are|was|were|have|has|had|will|would|could|should)\s+/i)) {
+                        return firstLine;
+                    }
+                }
+                
+                return null;
+            }
+
+            renderSectionMetadata(metadata) {
+                if (!metadata || Object.keys(metadata).length === 0) {
+                    return '';
+                }
+
+                const items = Object.entries(metadata)
+                    .filter(([key, value]) => value !== null && value !== undefined)
+                    .map(([key, value]) => `
+                        <div class="item">
+                            <span class="label">${this.formatLabel(key)}</span>
+                            ${Array.isArray(value) ? value.join(', ') : value}
+                        </div>
+                    `);
+
+                if (items.length === 0) return '';
+
+                return `
+                    <div class="section-metadata">
+                        <h5>Section Metadata</h5>
+                        <div class="metadata-grid">
+                            ${items.join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderRelationships() {
+                const relationships = this.adamDocument.relationships || [];
+                const relationshipsPanel = document.getElementById('relationshipsPanel');
+                const relationshipsList = document.getElementById('relationshipsList');
+
+                if (relationships.length === 0) {
+                    relationshipsPanel.style.display = 'none';
+                    return;
+                }
+
+                relationshipsList.innerHTML = relationships.map(rel => `
+                    <div class="relationship-item">
+                        <strong>${rel.type || 'Related'}:</strong> 
+                        ${rel.source} → ${rel.target}
+                        ${rel.description ? `<br><em>${rel.description}</em>` : ''}
+                    </div>
+                `).join('');
+
+                relationshipsPanel.style.display = 'block';
+            }
+
+            formatContent(content) {
+                // Convert line breaks to paragraphs
+                const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim());
+                return paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+            }
+
+            formatLabel(key) {
+                return key.replace(/([A-Z])/g, ' $1')
+                         .replace(/^./, str => str.toUpperCase())
+                         .trim();
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            highlightSearchResults() {
+                if (!this.searchTerm) {
+                    // Remove existing highlights
+                    document.querySelectorAll('.highlight').forEach(el => {
+                        el.outerHTML = el.innerHTML;
+                    });
+                    return;
+                }
+
+                const sections = document.querySelectorAll('.section-content');
+                sections.forEach(section => {
+                    let html = section.innerHTML;
+                    
+                    // Remove existing highlights
+                    html = html.replace(/<mark class="highlight">(.*?)<\/mark>/gi, '$1');
+                    
+                    // Add new highlights
+                    const regex = new RegExp(`(${this.searchTerm})`, 'gi');
+                    html = html.replace(regex, '<mark class="highlight">$1</mark>');
+                    
+                    section.innerHTML = html;
+                });
+            }
+
+            scrollToSection(sectionId) {
+                const section = document.getElementById(sectionId);
+                if (section) {
+                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    
+                    // Update active TOC item
+                    document.querySelectorAll('.toc-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    document.querySelector(`[data-section-id="${sectionId}"]`)?.classList.add('active');
+                }
+            }
+
+            showLoading() {
+                const uploadArea = document.getElementById('uploadArea');
+                const documentContent = document.getElementById('documentContent');
+                
+                if (uploadArea) uploadArea.style.display = 'none';
+                if (documentContent) documentContent.style.display = 'none';
+                
+                const content = document.querySelector('.content');
+                if (content) {
+                    content.innerHTML = `
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <div>Loading document...</div>
+                        </div>
+                    `;
+                }
+            }
+
+            showUploadArea() {
+                const content = document.querySelector('.content');
+                if (content) {
+                    content.innerHTML = `
+                        <div class="upload-area" id="uploadArea">
+                            <div class="upload-icon">📄</div>
+                            <div class="upload-text">Drop your ADAM document here</div>
+                            <div class="upload-hint">Supports WASM and JSON formats</div>
+                            <input type="file" id="fileInput" class="file-input" accept=".wasm,.adam.wasm,.json,.adam.json">
+                        </div>
+                    `;
+                    this.initializeEventListeners();
+                }
+            }
+
+            showDocument() {
+                const uploadArea = document.getElementById('uploadArea');
+                const documentContent = document.getElementById('documentContent');
+                
+                if (uploadArea) {
+                    uploadArea.style.display = 'none';
+                } else {
+                    console.warn('uploadArea element not found in showDocument');
+                }
+                
+                if (documentContent) {
+                    documentContent.style.display = 'block';
+                } else {
+                    console.warn('documentContent element not found, creating document structure');
+                    // If documentContent doesn't exist, we need to create it
+                    const content = document.querySelector('.content');
+                    if (content) {
+                        content.innerHTML = `
+                            <div id="documentContent">
+                                <div class="document-body" id="documentBody">
+                                    <!-- Sections will be rendered here -->
+                                </div>
+                            </div>
+                        `;
+                        document.getElementById('documentContent').style.display = 'block';
+                    }
+                }
+            }
+        }
+
+        // Initialize the viewer with error handling
+        let viewer;
+        try {
+            console.log('🚀 Initializing ADAMDocumentViewer...');
+            viewer = new ADAMDocumentViewer();
+            console.log('✅ ADAMDocumentViewer initialized successfully');
+            window.viewer = viewer; // Make globally accessible
+        } catch (error) {
+            console.error('❌ Failed to initialize ADAMDocumentViewer:', error);
+            document.body.innerHTML = '<div style="padding: 20px; color: red; font-family: monospace;">Failed to initialize viewer: ' + error.message + '</div>';
+        }
+    </script>
+</body>
+</html>
