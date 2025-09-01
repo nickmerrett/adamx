@@ -868,6 +868,167 @@ program
     }
   });
 
+program
+  .command('sign')
+  .description('Sign an ADAM document with X.509 certificate')
+  .argument('<input>', 'ADAM document to sign')
+  .option('-k, --key <file>', 'Private key file (.key or .pem)')
+  .option('-c, --cert <file>', 'X.509 certificate file (.crt or .pem)')
+  .option('-o, --output <file>', 'Output signed document file')
+  .option('--generate-test-cert', 'Generate test certificate for signing')
+  .option('--signer-name <name>', 'Signer name (for test certificate)', 'ADAM Document Signer')
+  .option('--signer-email <email>', 'Signer email (for test certificate)')
+  .option('--signer-org <org>', 'Signer organization (for test certificate)', 'ADAM Project')
+  .option('-v, --verbose', 'Verbose logging')
+  .action(async (input, options) => {
+    try {
+      // Setup logging
+      if (options.verbose) {
+        logger.setLevel('debug');
+      }
+
+      const spinner = ora('Signing document...').start();
+
+      // Import signing utilities
+      const { signDocument, generateTestCertificate } = await import('./utils/signing.js');
+
+      // Load document
+      const inputPath = path.resolve(input);
+      const document = JSON.parse(await fs.readFile(inputPath, 'utf8'));
+      spinner.text = 'Document loaded, preparing signature...';
+
+      let privateKey, certificate;
+
+      if (options.generateTestCert) {
+        // Generate test certificate
+        spinner.text = 'Generating test certificate...';
+        const certData = generateTestCertificate({
+          name: options.signerName,
+          email: options.signerEmail,
+          organization: options.signerOrg
+        });
+        
+        privateKey = certData.privateKey;
+        certificate = certData.certificate;
+        
+        logger.info('✅ Generated test certificate');
+        logger.info(`   Signer: ${options.signerName}`);
+        logger.info(`   Organization: ${options.signerOrg}`);
+        
+      } else {
+        // Load certificate and key files
+        if (!options.key || !options.cert) {
+          spinner.fail('Private key and certificate files required');
+          logger.error('Use --key and --cert options, or --generate-test-cert for testing');
+          process.exit(1);
+        }
+
+        spinner.text = 'Loading certificate and private key...';
+        const keyData = await fs.readFile(path.resolve(options.key), 'utf8');
+        const certData = await fs.readFile(path.resolve(options.cert), 'utf8');
+        
+        privateKey = Buffer.from(keyData).toString('base64');
+        certificate = Buffer.from(certData).toString('base64');
+      }
+
+      // Sign document
+      spinner.text = 'Signing document...';
+      const signedDocument = signDocument(document, privateKey, certificate);
+
+      // Determine output path
+      const outputPath = options.output || 
+        path.join(path.dirname(inputPath), 
+          path.basename(inputPath, '.adam.json') + '-signed.adam.json');
+
+      // Save signed document
+      await fs.writeFile(outputPath, JSON.stringify(signedDocument, null, 2));
+      
+      spinner.succeed('Document signed successfully');
+      logger.info(`📝 Input: ${inputPath}`);
+      logger.info(`🔐 Output: ${outputPath}`);
+      logger.info(`📋 Algorithm: ${signedDocument.signature.algorithm}`);
+      logger.info(`⏰ Signed at: ${signedDocument.signature.signed_at}`);
+
+    } catch (error) {
+      logger.error(`Signing failed: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('verify')
+  .description('Verify signature of an ADAM document')
+  .argument('<input>', 'Signed ADAM document to verify')
+  .option('--ca-cert <file>', 'CA certificate for chain validation')
+  .option('--check-revocation', 'Check certificate revocation status')
+  .option('-v, --verbose', 'Verbose logging')
+  .action(async (input, options) => {
+    try {
+      // Setup logging
+      if (options.verbose) {
+        logger.setLevel('debug');
+      }
+
+      const spinner = ora('Verifying signature...').start();
+
+      // Import verification utilities
+      const { verifySignature } = await import('./utils/signing.js');
+
+      // Load signed document
+      const inputPath = path.resolve(input);
+      const document = JSON.parse(await fs.readFile(inputPath, 'utf8'));
+
+      if (!document.signature) {
+        spinner.fail('Document is not signed');
+        process.exit(1);
+      }
+
+      // Verify signature
+      spinner.text = 'Verifying cryptographic signature...';
+      const verification = verifySignature(document);
+
+      if (verification.valid) {
+        spinner.succeed('✅ Signature verification passed');
+        
+        console.log('\n📋 Signature Details:');
+        console.log(`  Format: ${verification.format}`);
+        console.log(`  Algorithm: ${verification.algorithm}`);
+        console.log(`  Signed at: ${verification.signed_at}`);
+        
+        if (verification.certificate_info) {
+          console.log('\n📜 Certificate Information:');
+          console.log(`  Subject: ${verification.certificate_info.subject.commonName || 'Unknown'}`);
+          console.log(`  Issuer: ${verification.certificate_info.issuer.commonName || 'Unknown'}`);
+          console.log(`  Valid from: ${verification.certificate_info.not_before}`);
+          console.log(`  Valid until: ${verification.certificate_info.not_after}`);
+          console.log(`  Serial: ${verification.certificate_info.serial_number}`);
+        }
+
+        console.log('\n🔐 Validation Status:');
+        console.log(`  Signature: ${verification.signature_valid ? '✅ Valid' : '❌ Invalid'}`);
+        console.log(`  Certificate: ${verification.certificate_valid ? '✅ Valid' : '❌ Invalid'}`);
+        
+        if (options.verbose) {
+          console.log('\n🔍 Technical Details:');
+          console.log(`  Content hash: ${document.signature.content_hash}`);
+          console.log(`  Hash algorithm: ${document.signature.hash_algorithm}`);
+          if (document.signature.certificate_chain?.length > 0) {
+            console.log(`  Certificate chain: ${document.signature.certificate_chain.length} certificates`);
+          }
+        }
+
+      } else {
+        spinner.fail('❌ Signature verification failed');
+        logger.error(`Verification error: ${verification.error}`);
+        process.exit(1);
+      }
+
+    } catch (error) {
+      logger.error(`Verification failed: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
 // Error handling
 program.exitOverride();
 

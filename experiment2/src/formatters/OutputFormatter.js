@@ -29,10 +29,11 @@ export class OutputFormatter {
     try {
       const { metadata, sections, options } = data;
 
-      // Build ADAM document structure
+      // Build ADAM document structure with enhanced schema
       const adamDocument = {
         format: 'adam-document',
-        version: '1.0.0',
+        schema_version: '2.0.0',
+        version: metadata.document_version || '1.0.0',
         metadata: this.formatMetadata(metadata),
         sections: this.formatSections(sections),
         ...(this.shouldIncludeIndex(sections) && {

@@ -1,14 +1,17 @@
+// MCP SDK imports - re-enabled for WASM embedding
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { SimpleADAMPacker } from './simple-packer.js';
+import { SIGNATURE_TOOLS, SignatureVerificationTools, registerSignatureTools } from './signature-tools.js';
 
 /**
  * ADAM MCP Server - Model Context Protocol server for ADAM documents embedded in WASM
  * 
  * Provides tools and resources for querying, searching, and analyzing ADAM documents
- * directly from WebAssembly binaries.
+ * directly from WebAssembly binaries. Now includes signature verification tools.
  */
+
 export class ADAMMCPServer {
   constructor(wasmPath) {
     this.wasmPath = wasmPath;
@@ -20,6 +23,7 @@ export class ADAMMCPServer {
     
     this.setupTools();
     this.setupResources();
+    this.setupSignatureTools();
   }
 
   /**
@@ -232,6 +236,45 @@ export class ADAMMCPServer {
           }, null, 2)
         }]
       };
+    });
+  }
+
+  /**
+   * Setup signature verification tools for cryptographic validation
+   */
+  setupSignatureTools() {
+    const signatureTools = new SignatureVerificationTools(this.document);
+
+    // Tool: Verify document signature
+    this.server.tool('verify_signature', SIGNATURE_TOOLS.verify_signature, async (request) => {
+      if (!this.document) {
+        throw new Error('Document not loaded');
+      }
+      return await signatureTools.verifySignature(request.params.arguments);
+    });
+
+    // Tool: Get signature information
+    this.server.tool('get_signature_info', SIGNATURE_TOOLS.get_signature_info, async (request) => {
+      if (!this.document) {
+        throw new Error('Document not loaded');
+      }
+      return await signatureTools.getSignatureInfo(request.params.arguments);
+    });
+
+    // Tool: Validate document integrity
+    this.server.tool('validate_integrity', SIGNATURE_TOOLS.validate_integrity, async (request) => {
+      if (!this.document) {
+        throw new Error('Document not loaded');
+      }
+      return await signatureTools.validateIntegrity(request.params.arguments);
+    });
+
+    // Tool: Get comprehensive trust status
+    this.server.tool('get_trust_status', SIGNATURE_TOOLS.get_trust_status, async (request) => {
+      if (!this.document) {
+        throw new Error('Document not loaded');
+      }
+      return await signatureTools.getTrustStatus(request.params.arguments);
     });
   }
 
@@ -588,15 +631,15 @@ export class ADAMMCPServer {
 }
 
 /**
- * Create and start ADAM MCP Server
+ * Create and start ADAM MCP Server with signature verification tools
  */
 export async function createADAMMCPServer(wasmPath) {
   const server = new ADAMMCPServer(wasmPath);
   
   if (await server.initialize()) {
-    console.log('🚀 Starting ADAM MCP Server...');
+    console.log('🚀 Starting ADAM MCP Server with signature verification...');
     await server.start();
-    console.log('✅ ADAM MCP Server running');
+    console.log('✅ ADAM MCP Server running with cryptographic tools');
   } else {
     console.error('❌ Failed to initialize ADAM MCP Server');
     process.exit(1);

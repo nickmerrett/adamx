@@ -3,17 +3,127 @@
   "title": "Agent-Optimized Document Format",
   "description": "A document format designed for optimal processing by AI agents and LLMs, with section-based structure for granular content access",
   "type": "object",
-  "required": ["format", "version", "metadata", "sections"],
+  "required": ["format", "schema_version", "version", "metadata", "sections"],
   "properties": {
     "format": {
       "type": "string",
       "const": "agent-document",
       "description": "Identifier for this document format"
     },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Version of the agent-document schema specification this document conforms to"
+    },
     "version": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "description": "Semantic version of the document format"
+      "description": "Semantic version of this specific document instance"
+    },
+    "signature": {
+      "type": "object",
+      "description": "X.509 PKI-based digital signature for document integrity and authenticity",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": ["PKCS#7", "CMS", "XMLDSig", "JWS"],
+          "default": "PKCS#7",
+          "description": "Signature format standard"
+        },
+        "algorithm": {
+          "type": "string",
+          "enum": ["sha256WithRSAEncryption", "ecdsa-with-SHA256", "Ed25519"],
+          "description": "Signature algorithm OID or name"
+        },
+        "signature": {
+          "type": "string",
+          "description": "Base64-encoded signature blob (PKCS#7/CMS)"
+        },
+        "certificate": {
+          "type": "string",
+          "description": "Base64-encoded X.509 certificate of the signer"
+        },
+        "certificate_chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Base64-encoded X.509 certificate chain for validation"
+        },
+        "signed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when document was signed (from certificate)"
+        },
+        "content_hash": {
+          "type": "string",
+          "description": "SHA256 hash of the signed content"
+        },
+        "hash_algorithm": {
+          "type": "string",
+          "enum": ["SHA-1", "SHA-256", "SHA-384", "SHA-512"],
+          "default": "SHA-256",
+          "description": "Hash algorithm used for content digest"
+        },
+        "signature_policy": {
+          "type": "object",
+          "description": "Signature policy information",
+          "properties": {
+            "policy_id": {
+              "type": "string",
+              "description": "Object identifier of signature policy"
+            },
+            "policy_url": {
+              "type": "string",
+              "format": "uri",
+              "description": "URL to signature policy document"
+            }
+          }
+        },
+        "trusted_timestamp": {
+          "type": "object",
+          "description": "RFC 3161 trusted timestamp",
+          "properties": {
+            "timestamp": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Trusted timestamp from TSA"
+            },
+            "tsa_certificate": {
+              "type": "string",
+              "description": "Base64-encoded TSA certificate"
+            },
+            "timestamp_token": {
+              "type": "string",
+              "description": "Base64-encoded RFC 3161 timestamp token"
+            }
+          }
+        },
+        "validation": {
+          "type": "object",
+          "description": "Signature validation information",
+          "properties": {
+            "certificate_valid": {
+              "type": "boolean",
+              "description": "Whether certificate is valid"
+            },
+            "certificate_trusted": {
+              "type": "boolean",
+              "description": "Whether certificate chain is trusted"
+            },
+            "not_revoked": {
+              "type": "boolean",
+              "description": "Whether certificate is not revoked (OCSP/CRL check)"
+            },
+            "validated_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "When validation was last performed"
+            }
+          }
+        }
+      },
+      "required": ["format", "algorithm", "signature", "certificate", "signed_at", "content_hash"]
     },
     "metadata": {
       "type": "object",
