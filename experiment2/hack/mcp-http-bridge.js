@@ -263,7 +263,8 @@ export class MCPHttpBridge extends EventEmitter {
     
     this.mcpProcess = spawn(command, finalArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env }
+      env: { ...process.env },
+      cwd: process.cwd() // Use current working directory
     });
     
     this.mcpProcess.on('error', (error) => {

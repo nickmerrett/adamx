@@ -1,71 +1,11 @@
-import { createHash, createSign, createVerify, generateKeyPairSync, createPrivateKey, createPublicKey } from 'crypto';
+import { createHash, createSign, createVerify } from 'crypto';
+import forge from 'node-forge';
 
 /**
  * X.509 PKI-based document signing utilities for ADAM documents
  * Compatible with standard PKI infrastructure and tools
  */
 
-/**
- * Generate a self-signed X.509 certificate for testing
- * @param {Object} subjectInfo - Certificate subject information
- * @returns {Object} - Certificate and private key
- */
-export function generateTestCertificate(subjectInfo = {}) {
-  const { publicKey, privateKey } = generateKeyPairSync('rsa', {
-    modulusLength: 2048,
-    publicKeyEncoding: {
-      type: 'spki',
-      format: 'pem'
-    },
-    privateKeyEncoding: {
-      type: 'pkcs8',
-      format: 'pem'
-    }
-  });
-
-  // For production use, this would be done by a CA
-  // This is a simplified self-signed certificate for testing
-  const certificate = createSelfSignedCertificate(privateKey, publicKey, subjectInfo);
-
-  return {
-    certificate: Buffer.from(certificate).toString('base64'),
-    privateKey: Buffer.from(privateKey).toString('base64'),
-    publicKey: Buffer.from(publicKey).toString('base64')
-  };
-}
-
-/**
- * Create a simplified self-signed certificate (for testing only)
- * In production, use proper CA-issued certificates
- */
-function createSelfSignedCertificate(privateKeyPem, publicKeyPem, subjectInfo) {
-  // This is a simplified implementation
-  // In production, use libraries like node-forge or call openssl
-  const subject = {
-    commonName: subjectInfo.name || 'ADAM Document Signer',
-    emailAddress: subjectInfo.email || '',
-    organizationName: subjectInfo.organization || 'ADAM Project',
-    countryName: subjectInfo.country || 'US'
-  };
-
-  // For now, return a mock certificate structure
-  // In real implementation, would generate proper ASN.1 DER encoded certificate
-  const mockCert = {
-    version: 3,
-    serialNumber: '1',
-    issuer: subject,
-    subject: subject,
-    notBefore: new Date().toISOString(),
-    notAfter: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-    publicKey: publicKeyPem,
-    extensions: {
-      keyUsage: ['digitalSignature', 'keyEncipherment'],
-      extKeyUsage: ['codeSigning', 'documentSigning']
-    }
-  };
-
-  return JSON.stringify(mockCert); // In production: return DER-encoded certificate
-}
 
 /**
  * Sign an ADAM document using X.509 certificate
@@ -90,8 +30,6 @@ export function signDocument(document, privateKeyBase64, certificateBase64, cert
   sign.update(contentJson, 'utf8');
   const signature = sign.sign(privateKeyPem, 'base64');
   
-  // Extract certificate subject information for metadata
-  const certInfo = parseCertificateInfo(certificateBase64);
   
   // Add X.509 PKI signature to document (compatible with standard tools)
   const signedDoc = JSON.parse(JSON.stringify(document));
@@ -117,23 +55,47 @@ export function signDocument(document, privateKeyBase64, certificateBase64, cert
 }
 
 /**
- * Parse certificate information (simplified for testing)
- * In production, use proper X.509 parsing libraries like node-forge
+ * Parse certificate information using node-forge for proper X.509 handling
  */
 function parseCertificateInfo(certificateBase64) {
   try {
+    // First try to parse as our mock JSON certificate format
     const certData = Buffer.from(certificateBase64, 'base64').toString('ascii');
-    const cert = JSON.parse(certData); // Our mock certificate is JSON
     
-    return {
-      subject: cert.subject,
-      issuer: cert.issuer,
-      notBefore: cert.notBefore,
-      notAfter: cert.notAfter,
-      serialNumber: cert.serialNumber
-    };
+    if (certData.startsWith('{')) {
+      // Mock certificate is JSON
+      const cert = JSON.parse(certData);
+      return {
+        subject: cert.subject,
+        issuer: cert.issuer,
+        notBefore: cert.notBefore,
+        notAfter: cert.notAfter,
+        serialNumber: cert.serialNumber
+      };
+    } else {
+      // Real X.509 certificate in PEM format - use node-forge
+      // The certificateBase64 contains a full PEM certificate
+      const cert = forge.pki.certificateFromPem(certData);
+      
+      return {
+        subject: {
+          commonName: cert.subject.getField('CN')?.value || 'Unknown',
+          organizationName: cert.subject.getField('O')?.value || '',
+          emailAddress: cert.subject.getField('emailAddress')?.value || '',
+          countryName: cert.subject.getField('C')?.value || ''
+        },
+        issuer: {
+          commonName: cert.issuer.getField('CN')?.value || 'Unknown',
+          organizationName: cert.issuer.getField('O')?.value || '',
+          countryName: cert.issuer.getField('C')?.value || ''
+        },
+        notBefore: cert.validity.notBefore.toISOString(),
+        notAfter: cert.validity.notAfter.toISOString(),
+        serialNumber: cert.serialNumber
+      };
+    }
   } catch (error) {
-    // Fallback for real certificates (would need proper ASN.1 parsing)
+    // Fallback if parsing fails
     return {
       subject: { commonName: 'Unknown' },
       issuer: { commonName: 'Unknown' },
@@ -212,16 +174,25 @@ export function verifySignature(document) {
 }
 
 /**
- * Extract public key from X.509 certificate
+ * Extract public key from X.509 certificate using node-forge
  */
 function extractPublicKeyFromCertificate(certificateBase64) {
   try {
     const certData = Buffer.from(certificateBase64, 'base64').toString('ascii');
-    const cert = JSON.parse(certData); // Our mock certificate
-    return cert.publicKey;
+    
+    if (certData.startsWith('{')) {
+      // Mock certificate is JSON
+      const cert = JSON.parse(certData);
+      return cert.publicKey;
+    } else {
+      // Real X.509 certificate in PEM format - use node-forge
+      const cert = forge.pki.certificateFromPem(certData);
+      // Convert forge public key to PEM format for Node.js crypto
+      const publicKeyPem = forge.pki.publicKeyToPem(cert.publicKey);
+      return publicKeyPem;
+    }
   } catch (error) {
-    // For real X.509 certificates, would use proper ASN.1 parsing
-    throw new Error('Certificate parsing not implemented for real X.509 certificates');
+    throw new Error(`Certificate parsing failed: ${error.message}`);
   }
 }
 

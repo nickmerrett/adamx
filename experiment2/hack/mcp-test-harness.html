@@ -536,12 +536,11 @@
                 try {
                     this.log('Starting MCP server...', 'info');
                     
-                    // For demo purposes, use a mock command
-                    // In real usage, you'd specify the actual MCP server command
+                    // Use self-contained ADAM MCP server (no SDK dependencies required)
+                    // Replace with actual WASM file path for real usage
                     const startRequest = {
                         command: 'node',
-                        args: ['mock-mcp-server.js'],
-                        adamFile: 'loaded-adam-file.wasm'
+                        args: ['src/cli.js', 'mcp-server', 'NFSTandC.mcp.wasm', '--stdio']
                     };
                     
                     const response = await fetch(`${this.mcpBridgeUrl}/mcp/start`, {

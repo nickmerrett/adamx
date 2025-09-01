@@ -93,7 +93,7 @@ export class SignatureVerificationTools {
   }
 
   /**
-   * Verify document signature
+   * Verify document signature using real cryptographic verification
    */
   async verifySignature(args = {}) {
     const { checkCertificateChain = true, checkRevocation = false, includeDetails = true } = args;
@@ -112,49 +112,60 @@ export class SignatureVerificationTools {
       };
     }
 
-    // Mock verification result - in production would use actual crypto verification
-    const signatureInfo = this.document.signature;
-    const now = new Date();
-    const signedAt = new Date(signatureInfo.signed_at);
+    try {
+      // Use real signature verification from signing utilities
+      const verification = verifyDocumentSignature(this.document);
+      
+      const result = {
+        signed: true,
+        valid: verification.valid,
+        signature_info: {
+          algorithm: this.document.signature.algorithm,
+          format: this.document.signature.format,
+          signed_at: this.document.signature.signed_at,
+          content_hash: this.document.signature.content_hash,
+          hash_algorithm: this.document.signature.hash_algorithm
+        },
+        certificate_info: includeDetails && verification.certificate_info ? {
+          subject: verification.certificate_info.subject,
+          issuer: verification.certificate_info.issuer,
+          validity_period: {
+            not_before: verification.certificate_info.not_before,
+            not_after: verification.certificate_info.not_after
+          },
+          serial_number: verification.certificate_info.serial_number
+        } : undefined,
+        validation_results: {
+          signature_valid: verification.signature_valid,
+          certificate_valid: verification.certificate_valid,
+          certificate_trusted: checkCertificateChain ? verification.certificate_valid : undefined,
+          not_revoked: checkRevocation ? true : undefined, // OCSP checking not implemented yet
+          validated_at: new Date().toISOString()
+        },
+        trust_level: this.calculateTrustLevel(verification.certificate_valid, verification.signature_valid, true),
+        warnings: this.generateSecurityWarnings(this.document.signature),
+        error: verification.error
+      };
 
-    // Simulate certificate validation
-    const certificateValid = true; // Would validate certificate dates, chain, etc.
-    const signatureValid = true;   // Would verify cryptographic signature
-    const notRevoked = !checkRevocation || true; // Would check OCSP/CRL
-
-    const result = {
-      signed: true,
-      valid: certificateValid && signatureValid && notRevoked,
-      signature_info: {
-        algorithm: signatureInfo.algorithm,
-        format: signatureInfo.format,
-        signed_at: signatureInfo.signed_at,
-        content_hash: signatureInfo.content_hash,
-        hash_algorithm: signatureInfo.hash_algorithm
-      },
-      certificate_info: includeDetails ? {
-        subject: this.extractCertificateSubject(signatureInfo.certificate),
-        issuer: this.extractCertificateIssuer(signatureInfo.certificate),
-        validity_period: this.getCertificateValidityPeriod(signatureInfo.certificate),
-        serial_number: this.getCertificateSerial(signatureInfo.certificate)
-      } : undefined,
-      validation_results: {
-        signature_valid: signatureValid,
-        certificate_valid: certificateValid,
-        certificate_trusted: checkCertificateChain ? true : undefined,
-        not_revoked: checkRevocation ? notRevoked : undefined,
-        validated_at: new Date().toISOString()
-      },
-      trust_level: this.calculateTrustLevel(certificateValid, signatureValid, notRevoked),
-      warnings: this.generateSecurityWarnings(signatureInfo)
-    };
-
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify(result, null, 2)
-      }]
-    };
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(result, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            signed: true,
+            valid: false,
+            error: `Signature verification failed: ${error.message}`,
+            recommendation: 'Check certificate format and signature validity'
+          }, null, 2)
+        }]
+      };
+    }
   }
 
   /**
@@ -227,10 +238,10 @@ export class SignatureVerificationTools {
     const unsignedDoc = JSON.parse(JSON.stringify(this.document));
     delete unsignedDoc.signature;
 
-    // Calculate current content hash
+    // Calculate current content hash using real crypto
     const contentJson = JSON.stringify(unsignedDoc, null, 0);
-    // Mock hash calculation - in production would use actual crypto
-    const currentHash = `mock_${algorithm.toLowerCase()}_hash_${contentJson.length}`;
+    const crypto = await import('crypto');
+    const currentHash = crypto.createHash(algorithm.toLowerCase().replace('-', '')).update(contentJson, 'utf8').digest('hex');
 
     const storedHash = this.document.signature?.content_hash;
     const hashMatches = storedHash ? (currentHash === storedHash) : null;
@@ -438,7 +449,7 @@ export function registerSignatureTools(mcpServer, adamDocument) {
  * Standalone signature verification for WASM environments
  * Can be called directly without MCP server
  */
-export async function verifyDocumentSignature(adamDocument, options = {}) {
+export async function verifyADAMDocumentSignature(adamDocument, options = {}) {
   const tools = new SignatureVerificationTools(adamDocument);
   return await tools.verifySignature(options);
 }

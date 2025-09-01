@@ -1,9 +1,8 @@
-// MCP SDK imports - re-enabled for WASM embedding
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+// Self-contained MCP server implementation - no external SDK dependencies
+// Implements JSON-RPC 2.0 protocol directly for true WASM portability
 import { SimpleADAMPacker } from './simple-packer.js';
-import { SIGNATURE_TOOLS, SignatureVerificationTools, registerSignatureTools } from './signature-tools.js';
+import { ADAMMCPPacker } from './adam-mcp-packer.js';
+import { SIGNATURE_TOOLS, SignatureVerificationTools } from './signature-tools.js';
 
 /**
  * ADAM MCP Server - Model Context Protocol server for ADAM documents embedded in WASM
@@ -12,14 +11,159 @@ import { SIGNATURE_TOOLS, SignatureVerificationTools, registerSignatureTools } f
  * directly from WebAssembly binaries. Now includes signature verification tools.
  */
 
+/**
+ * Self-contained JSON-RPC 2.0 server implementation
+ * No external MCP SDK dependencies for true WASM portability
+ */
+class EmbeddedJSONRPCServer {
+  constructor() {
+    this.tools = new Map();
+    this.resources = new Map();
+    this.capabilities = { tools: {}, resources: {} };
+    this.initialized = false;
+    this.serverInfo = {
+      name: 'adam-document-server',
+      version: '1.0.0'
+    };
+  }
+
+  tool(name, schema, handler) {
+    this.tools.set(name, { schema, handler });
+  }
+
+  resource(template, schema, handler) {
+    this.resources.set(template, { schema, handler });
+  }
+
+  async handleRequest(request) {
+    const { jsonrpc, method, params, id } = request;
+
+    if (jsonrpc !== '2.0') {
+      return this.createErrorResponse(id, -32600, 'Invalid Request', 'Invalid JSON-RPC version');
+    }
+
+    try {
+      switch (method) {
+        case 'initialize':
+          this.initialized = true;
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {
+              protocolVersion: '1.0',
+              serverInfo: this.serverInfo,
+              capabilities: this.capabilities
+            }
+          };
+
+        case 'tools/list':
+          const tools = Array.from(this.tools.entries()).map(([name, { schema }]) => ({
+            name,
+            description: schema.description,
+            inputSchema: schema.inputSchema
+          }));
+          return { jsonrpc: '2.0', id, result: { tools } };
+
+        case 'tools/call':
+          const toolName = params?.name;
+          const toolArgs = params?.arguments || {};
+          
+          if (!this.tools.has(toolName)) {
+            return this.createErrorResponse(id, -32601, 'Method not found', `Tool not found: ${toolName}`);
+          }
+
+          const tool = this.tools.get(toolName);
+          const result = await tool.handler({ params: { arguments: toolArgs } });
+          return { jsonrpc: '2.0', id, result };
+
+        case 'resources/list':
+          const resources = Array.from(this.resources.entries()).map(([template, { schema }]) => ({
+            uri: template,
+            name: schema.name || template,
+            description: schema.description,
+            mimeType: schema.mimeType
+          }));
+          return { jsonrpc: '2.0', id, result: { resources } };
+
+        case 'resources/read':
+          const uri = params?.uri;
+          if (!uri) {
+            return this.createErrorResponse(id, -32602, 'Invalid params', 'URI required');
+          }
+
+          // Find matching resource template
+          for (const [template, { handler }] of this.resources) {
+            if (this.matchResourceTemplate(template, uri)) {
+              const result = await handler({ params: { uri, path: uri } });
+              return { jsonrpc: '2.0', id, result };
+            }
+          }
+
+          return this.createErrorResponse(id, -32601, 'Method not found', `Resource not found: ${uri}`);
+
+        default:
+          return this.createErrorResponse(id, -32601, 'Method not found', `Unknown method: ${method}`);
+      }
+    } catch (error) {
+      return this.createErrorResponse(id, -32603, 'Internal error', error.message);
+    }
+  }
+
+  createErrorResponse(id, code, message, data = null) {
+    return {
+      jsonrpc: '2.0',
+      id,
+      error: { code, message, ...(data && { data }) }
+    };
+  }
+
+  matchResourceTemplate(template, uri) {
+    // Simple template matching for patterns like 'sections://{type}'
+    const templateRegex = template.replace(/\{[^}]+\}/g, '([^/]+)');
+    return new RegExp(`^${templateRegex}$`).test(uri);
+  }
+
+  async connect(transport) {
+    // Handle stdio transport manually
+    process.stdin.setEncoding('utf8');
+    
+    let buffer = '';
+    process.stdin.on('data', async (data) => {
+      buffer += data;
+      
+      // Process complete JSON-RPC messages
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      
+      for (const line of lines) {
+        if (line.trim()) {
+          try {
+            const request = JSON.parse(line.trim());
+            const response = await this.handleRequest(request);
+            process.stdout.write(JSON.stringify(response) + '\n');
+          } catch (error) {
+            const errorResponse = {
+              jsonrpc: '2.0',
+              id: null,
+              error: {
+                code: -32700,
+                message: 'Parse error',
+                data: error.message
+              }
+            };
+            process.stdout.write(JSON.stringify(errorResponse) + '\n');
+          }
+        }
+      }
+    });
+  }
+}
+
 export class ADAMMCPServer {
   constructor(wasmPath) {
     this.wasmPath = wasmPath;
     this.document = null;
-    this.server = new Server(
-      { name: 'adam-document-server', version: '1.0.0' },
-      { capabilities: { tools: {}, resources: {} } }
-    );
+    this.server = new EmbeddedJSONRPCServer();
     
     this.setupTools();
     this.setupResources();
@@ -31,10 +175,17 @@ export class ADAMMCPServer {
    */
   async initialize() {
     try {
-      const packer = new SimpleADAMPacker();
-      this.document = await packer.unpack(this.wasmPath);
-      console.log(`✅ Loaded ADAM document: ${this.document.metadata?.title || 'Untitled'}`);
-      console.log(`📊 Sections: ${this.document.sections?.length || 0}`);
+      // Use appropriate packer based on file type
+      if (this.wasmPath.includes('.mcp.wasm')) {
+        const mcpPacker = new ADAMMCPPacker();
+        const result = await mcpPacker.unpackWithMCP(this.wasmPath);
+        this.document = result.document; // Extract document from MCP result
+      } else {
+        const simplePacker = new SimpleADAMPacker();
+        this.document = await simplePacker.unpack(this.wasmPath);
+      }
+      console.error(`✅ Loaded ADAM document: ${this.document.metadata?.title || 'Untitled'}`);
+      console.error(`📊 Sections: ${this.document.sections?.length || 0}`);
       return true;
     } catch (error) {
       console.error(`❌ Failed to load ADAM document: ${error.message}`);
@@ -243,38 +394,41 @@ export class ADAMMCPServer {
    * Setup signature verification tools for cryptographic validation
    */
   setupSignatureTools() {
-    const signatureTools = new SignatureVerificationTools(this.document);
-
-    // Tool: Verify document signature
-    this.server.tool('verify_signature', SIGNATURE_TOOLS.verify_signature, async (request) => {
+    // Create signature tools instance that will be available after document loads
+    let signatureTools = null;
+    
+    const getSignatureTools = () => {
       if (!this.document) {
         throw new Error('Document not loaded');
       }
-      return await signatureTools.verifySignature(request.params.arguments);
+      if (!signatureTools) {
+        signatureTools = new SignatureVerificationTools(this.document);
+      }
+      return signatureTools;
+    };
+
+    // Tool: Verify document signature
+    this.server.tool('verify_signature', SIGNATURE_TOOLS.verify_signature, async (request) => {
+      const tools = getSignatureTools();
+      return await tools.verifySignature(request.params.arguments);
     });
 
     // Tool: Get signature information
     this.server.tool('get_signature_info', SIGNATURE_TOOLS.get_signature_info, async (request) => {
-      if (!this.document) {
-        throw new Error('Document not loaded');
-      }
-      return await signatureTools.getSignatureInfo(request.params.arguments);
+      const tools = getSignatureTools();
+      return await tools.getSignatureInfo(request.params.arguments);
     });
 
     // Tool: Validate document integrity
     this.server.tool('validate_integrity', SIGNATURE_TOOLS.validate_integrity, async (request) => {
-      if (!this.document) {
-        throw new Error('Document not loaded');
-      }
-      return await signatureTools.validateIntegrity(request.params.arguments);
+      const tools = getSignatureTools();
+      return await tools.validateIntegrity(request.params.arguments);
     });
 
     // Tool: Get comprehensive trust status
     this.server.tool('get_trust_status', SIGNATURE_TOOLS.get_trust_status, async (request) => {
-      if (!this.document) {
-        throw new Error('Document not loaded');
-      }
-      return await signatureTools.getTrustStatus(request.params.arguments);
+      const tools = getSignatureTools();
+      return await tools.getTrustStatus(request.params.arguments);
     });
   }
 
@@ -622,11 +776,11 @@ export class ADAMMCPServer {
   }
 
   /**
-   * Start the MCP server
+   * Start the self-contained MCP server
    */
   async start() {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
+    // Use embedded stdio transport - no external SDK needed
+    await this.server.connect();
   }
 }
 

@@ -10,7 +10,7 @@ import { generateValidationReport } from './utils/validator.js';
 import { Logger } from './utils/logger.js';
 import { SimpleADAMPacker } from './wasm/simple-packer.js';
 import { ADAMMCPPacker } from './wasm/adam-mcp-packer.js';
-// import { createADAMMCPServer } from './wasm/adam-mcp-server.js'; // Requires MCP SDK
+import { createADAMMCPServer } from './wasm/adam-mcp-server.js'; // Self-contained - no SDK required
 
 const program = new Command();
 const logger = new Logger();
@@ -741,11 +741,12 @@ program
         logger.info(`🚀 Starting ADAM MCP server from: ${inputPath}`);
       }
 
-      // Start MCP server (requires MCP SDK installation)
-      console.log('⚠️  MCP server requires @modelcontextprotocol/sdk package');
-      console.log('💡 Install with: npm install @modelcontextprotocol/sdk');
-      console.log('🔧 For now, use pack-mcp and mcp-query commands for MCP functionality');
-      // await createADAMMCPServer(inputPath);
+      // Start self-contained MCP server - no external dependencies needed
+      if (options.verbose) {
+        console.error('🚀 Starting self-contained ADAM MCP Server...');
+      }
+      
+      await createADAMMCPServer(inputPath);
 
     } catch (error) {
       logger.error(`MCP server error: ${error.message}`);
@@ -875,10 +876,6 @@ program
   .option('-k, --key <file>', 'Private key file (.key or .pem)')
   .option('-c, --cert <file>', 'X.509 certificate file (.crt or .pem)')
   .option('-o, --output <file>', 'Output signed document file')
-  .option('--generate-test-cert', 'Generate test certificate for signing')
-  .option('--signer-name <name>', 'Signer name (for test certificate)', 'ADAM Document Signer')
-  .option('--signer-email <email>', 'Signer email (for test certificate)')
-  .option('--signer-org <org>', 'Signer organization (for test certificate)', 'ADAM Project')
   .option('-v, --verbose', 'Verbose logging')
   .action(async (input, options) => {
     try {
@@ -890,46 +887,26 @@ program
       const spinner = ora('Signing document...').start();
 
       // Import signing utilities
-      const { signDocument, generateTestCertificate } = await import('./utils/signing.js');
+      const { signDocument } = await import('./utils/signing.js');
 
       // Load document
       const inputPath = path.resolve(input);
       const document = JSON.parse(await fs.readFile(inputPath, 'utf8'));
       spinner.text = 'Document loaded, preparing signature...';
 
-      let privateKey, certificate;
-
-      if (options.generateTestCert) {
-        // Generate test certificate
-        spinner.text = 'Generating test certificate...';
-        const certData = generateTestCertificate({
-          name: options.signerName,
-          email: options.signerEmail,
-          organization: options.signerOrg
-        });
-        
-        privateKey = certData.privateKey;
-        certificate = certData.certificate;
-        
-        logger.info('✅ Generated test certificate');
-        logger.info(`   Signer: ${options.signerName}`);
-        logger.info(`   Organization: ${options.signerOrg}`);
-        
-      } else {
-        // Load certificate and key files
-        if (!options.key || !options.cert) {
-          spinner.fail('Private key and certificate files required');
-          logger.error('Use --key and --cert options, or --generate-test-cert for testing');
-          process.exit(1);
-        }
-
-        spinner.text = 'Loading certificate and private key...';
-        const keyData = await fs.readFile(path.resolve(options.key), 'utf8');
-        const certData = await fs.readFile(path.resolve(options.cert), 'utf8');
-        
-        privateKey = Buffer.from(keyData).toString('base64');
-        certificate = Buffer.from(certData).toString('base64');
+      // Load certificate and key files
+      if (!options.key || !options.cert) {
+        spinner.fail('Private key and certificate files required');
+        logger.error('Use --key and --cert options to specify certificate and private key files');
+        process.exit(1);
       }
+
+      spinner.text = 'Loading certificate and private key...';
+      const keyData = await fs.readFile(path.resolve(options.key), 'utf8');
+      const certData = await fs.readFile(path.resolve(options.cert), 'utf8');
+      
+      const privateKey = Buffer.from(keyData).toString('base64');
+      const certificate = Buffer.from(certData).toString('base64');
 
       // Sign document
       spinner.text = 'Signing document...';
@@ -959,6 +936,7 @@ program
   .command('verify')
   .description('Verify signature of an ADAM document')
   .argument('<input>', 'Signed ADAM document to verify')
+  .option('--cert <file>', 'Expected certificate to verify against (overrides embedded certificate)')
   .option('--ca-cert <file>', 'CA certificate for chain validation')
   .option('--check-revocation', 'Check certificate revocation status')
   .option('-v, --verbose', 'Verbose logging')
@@ -983,14 +961,29 @@ program
         process.exit(1);
       }
 
-      // Verify signature
-      spinner.text = 'Verifying cryptographic signature...';
-      const verification = verifySignature(document);
+      let verification;
+      
+      if (options.cert) {
+        // Use ONLY the provided certificate, ignore embedded one completely
+        const certPath = path.resolve(options.cert);
+        const certData = await fs.readFile(certPath, 'utf8');
+        
+        // Replace the embedded certificate with the provided one
+        const tempDocument = JSON.parse(JSON.stringify(document));
+        tempDocument.signature.certificate = Buffer.from(certData).toString('base64');
+        
+        spinner.text = 'Verifying signature against provided certificate...';
+        verification = verifySignature(tempDocument);
+      } else {
+        // Use embedded certificate
+        spinner.text = 'Verifying cryptographic signature...';
+        verification = verifySignature(document);
+      }
 
       if (verification.valid) {
         spinner.succeed('✅ Signature verification passed');
         
-        console.log('\n📋 Signature Details:');
+        console.log(`\n📋 Signature Details (${options.cert ? 'Provided Certificate' : 'Embedded Certificate'}):`);
         console.log(`  Format: ${verification.format}`);
         console.log(`  Algorithm: ${verification.algorithm}`);
         console.log(`  Signed at: ${verification.signed_at}`);
@@ -1008,6 +1001,10 @@ program
         console.log(`  Signature: ${verification.signature_valid ? '✅ Valid' : '❌ Invalid'}`);
         console.log(`  Certificate: ${verification.certificate_valid ? '✅ Valid' : '❌ Invalid'}`);
         
+        if (options.cert) {
+          console.log('\n📝 Note: Verification performed using PROVIDED certificate (embedded certificate ignored)');
+        }
+        
         if (options.verbose) {
           console.log('\n🔍 Technical Details:');
           console.log(`  Content hash: ${document.signature.content_hash}`);
@@ -1019,7 +1016,33 @@ program
 
       } else {
         spinner.fail('❌ Signature verification failed');
-        logger.error(`Verification error: ${verification.error}`);
+        
+        if (options.cert) {
+          console.log('\n❌ The document signature does NOT match the provided certificate');
+          console.log('\nPossible reasons:');
+          console.log('  • Document was signed with a different certificate');
+          console.log('  • Document content has been modified after signing');
+          console.log('  • Provided certificate file is incorrect or corrupted');
+          console.log('  • Certificate and signature use different key pairs');
+        } else {
+          console.log('\n❌ The embedded certificate signature verification failed');
+          console.log('\nPossible reasons:');
+          console.log('  • Document content has been modified after signing');
+          console.log('  • Embedded certificate is corrupted or invalid');
+          console.log('  • Signature data is corrupted');
+        }
+        
+        if (verification.error) {
+          logger.error(`Technical error: ${verification.error}`);
+        }
+        
+        if (options.verbose && verification.certificate_info) {
+          console.log('\n🔍 Certificate Details:');
+          console.log(`  Subject: ${verification.certificate_info.subject?.commonName || 'Unknown'}`);
+          console.log(`  Valid from: ${verification.certificate_info.not_before}`);
+          console.log(`  Valid until: ${verification.certificate_info.not_after}`);
+        }
+        
         process.exit(1);
       }
 
@@ -1029,18 +1052,5 @@ program
     }
   });
 
-// Error handling
-program.exitOverride();
-
-try {
-  program.parse();
-} catch (error) {
-  if (error.code === 'commander.help') {
-    process.exit(0);
-  } else if (error.code === 'commander.version') {
-    process.exit(0);
-  } else {
-    logger.error(`Command error: ${error.message}`);
-    process.exit(1);
-  }
-}
+// Parse command line arguments
+program.parse();

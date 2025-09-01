@@ -87,6 +87,54 @@ chmod +x src/cli.js
 
 ## Quick Start
 
+### Complete Workflow: PDF → Signed WASM MCP-Enabled ADAM
+
+Here's the complete end-to-end process to convert a PDF into a cryptographically signed, WASM-packed, MCP-enabled ADAM document:
+
+```bash
+# Step 1: Convert PDF to ADAM format
+node src/cli.js convert document.pdf --output document.adam.json --verbose
+
+# Step 2: Sign the ADAM document (optional but recommended) 
+node src/cli.js sign document.adam.json --key private-key.pem --cert certificate.pem --output document.signed.adam.json
+
+# Step 3: Pack into MCP-enabled WASM (with signature verification tools)
+node src/cli.js pack-mcp document.signed.adam.json --output document.signed.mcp.wasm --verbose
+
+# Step 4: Query the self-contained document
+node src/cli.js mcp-query document.signed.mcp.wasm --query "important terms" --limit 5
+
+# Step 5: Verify signature integrity (should work)
+node src/cli.js unpack document.signed.mcp.wasm --output test.adam.json --no-optimize
+node src/cli.js verify test.adam.json
+```
+
+**Result**: A 1MB self-contained WASM module containing:
+- ✅ Complete document content with 403+ semantic sections  
+- ✅ Vector embeddings and relationship graphs
+- ✅ Cryptographic signature with PKI validation
+- ✅ 10 MCP tools including signature verification
+- ✅ 96%+ compression from original size
+- ✅ Runs anywhere WebAssembly is supported
+
+### Essential Commands (Most Common Use Cases)
+
+```bash
+# Basic PDF to ADAM conversion
+node src/cli.js convert document.pdf
+
+# Create signed MCP-enabled WASM package
+node src/cli.js convert document.pdf --output doc.adam.json
+node src/cli.js sign doc.adam.json --key private-key.pem --cert certificate.pem --output doc.signed.adam.json  
+node src/cli.js pack-mcp doc.signed.adam.json --output doc.mcp.wasm
+
+# Query your self-contained document
+node src/cli.js mcp-query doc.mcp.wasm
+
+# Verify document integrity
+node src/cli.js verify doc.signed.adam.json
+```
+
 ### Convert a single document
 
 ```bash
@@ -297,7 +345,7 @@ Processing Time:       ~65 seconds (full pipeline)
 
 ### 🛠 MCP Tools & Capabilities
 
-The embedded MCP server provides 6 sophisticated analysis tools:
+The embedded MCP server provides 10 sophisticated analysis tools including 4 cryptographic verification tools:
 
 #### 1. **Content Search** (`search_content`)
 - Full-text search with relevance scoring
@@ -339,6 +387,37 @@ node src/cli.js mcp-query doc.wasm --query "bank charges" --limit 5
 - Heading-based navigation structure
 - Section counts and depth analysis
 - Customizable depth limits
+
+#### **🔐 Cryptographic Verification Tools (4 additional tools)**
+
+#### 7. **Signature Verification** (`verify_signature`)
+- Full PKI signature validation using X.509 certificates
+- Certificate chain verification and trust assessment
+- OCSP/CRL revocation checking (configurable)
+- Detailed cryptographic validation results
+
+```bash
+# Example: Verify document signature through MCP
+# Returns: signature validity, certificate info, trust level
+```
+
+#### 8. **Signature Information** (`get_signature_info`)
+- Comprehensive signature and certificate details
+- Signer information and validity periods
+- Certificate chain analysis
+- Multiple output formats: summary, detailed, raw
+
+#### 9. **Content Integrity Validation** (`validate_integrity`)
+- Cryptographic hash validation (SHA-256, SHA-512)
+- Content modification detection
+- Hash algorithm verification
+- Tamper detection and integrity reporting
+
+#### 10. **Trust Status Assessment** (`get_trust_status`)
+- Comprehensive document trust evaluation
+- Configurable trust policies (strict, moderate, permissive)
+- Security recommendations and warnings
+- Agent-friendly trust guidance with confidence scores
 
 ### 📋 Dynamic Resource Access
 
@@ -393,10 +472,12 @@ const results = await bridge.callTool('search_content', {
 ### 🎯 Use Cases
 
 #### AI Agent Integration
-- Standardized MCP interface for AI agents
-- Real-time document querying and analysis
-- Context-aware information retrieval
-- Relationship-based content discovery
+- **Standardized MCP interface** for AI agents with 10 analysis and verification tools
+- **Real-time document querying** and analysis with sub-second response times
+- **Context-aware information retrieval** with semantic relationship traversal
+- **Cryptographic document verification** - agents can verify document authenticity and integrity
+- **Trust assessment capabilities** - agents receive trust scores and security recommendations
+- **Certificate validation** - full X.509 PKI verification through standardized MCP tools
 
 #### Distributed Knowledge Systems
 - Self-contained document packages
@@ -461,8 +542,138 @@ node src/cli.js unpack-mcp document-mcp.wasm --test-mcp --verbose
 # Direct document querying from WASM
 node src/cli.js mcp-query document-mcp.wasm --query "search term" --limit 10
 
-# Start standalone MCP server (requires @modelcontextprotocol/sdk)
+# Start self-contained MCP server (no external dependencies required)
 node src/cli.js mcp-server document-mcp.wasm --stdio
+```
+
+### Self-Contained MCP Server Usage
+
+The ADAM MCP server is **completely self-contained** - no external SDK installation required:
+
+```bash
+# Start MCP server from WASM document
+node src/cli.js mcp-server document.mcp.wasm --stdio --verbose
+
+# The server uses JSON-RPC 2.0 over stdio and provides 10 tools:
+# - 6 document analysis tools (search, metadata, relationships)  
+# - 4 cryptographic verification tools (signature validation)
+```
+
+#### **Direct MCP Protocol Interaction**
+
+```bash
+# Send initialization request
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"1.0","clientInfo":{"name":"test","version":"1.0"}},"id":1}' | node src/cli.js mcp-server document.mcp.wasm --stdio
+
+# List available tools
+echo '{"jsonrpc":"2.0","method":"tools/list","id":2}' | node src/cli.js mcp-server document.mcp.wasm --stdio
+
+# Search document content
+echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_content","arguments":{"query":"bank charges","limit":5}},"id":3}' | node src/cli.js mcp-server document.mcp.wasm --stdio
+
+# Verify document signature
+echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"verify_signature","arguments":{"includeDetails":true}},"id":4}' | node src/cli.js mcp-server document.mcp.wasm --stdio
+```
+
+#### **HTTP Bridge for Web Testing**
+
+For easier web-based testing and integration:
+
+```bash
+# Start HTTP bridge (in terminal 1)
+node hack/mcp-http-bridge.js
+
+# Launch MCP server via HTTP (in terminal 2)
+curl -X POST http://localhost:8080/mcp/start \
+  -H "Content-Type: application/json" \
+  -d '{"command": "node", "args": ["src/cli.js", "mcp-server", "document.mcp.wasm", "--stdio"]}'
+
+# Test tools via HTTP
+curl -X GET http://localhost:8080/mcp/tools
+curl -X POST http://localhost:8080/mcp/tools/search_content \
+  -H "Content-Type: application/json" \
+  -d '{"query": "important terms", "limit": 5}'
+
+# Use web test interface
+open hack/mcp-test-harness.html
+```
+
+### Document Signing & Cryptographic Verification
+
+ADAM Converter includes comprehensive PKI-based document signing capabilities using standard X.509 certificates and PKCS#7 signature format.
+
+```bash
+# Sign document with certificate and private key
+node src/cli.js sign document.adam.json \
+  --key private-key.pem \
+  --cert certificate.pem \
+  --output signed.adam.json
+
+# Verify document signature
+node src/cli.js verify signed.adam.json --verbose
+
+# Sign with certificate chain for production
+node src/cli.js sign document.adam.json \
+  --key signer-key.pem \
+  --cert signer-cert.pem \
+  --chain ca-cert.pem \
+  --output production-signed.adam.json
+```
+
+#### **🔐 Signature Features**
+
+- **Standard PKI Compliance**: Uses X.509 certificates and PKCS#7 signature format
+- **OpenSSL Compatible**: Signatures work with standard PKI tooling
+- **Content Integrity**: SHA-256 hash validation ensures document hasn't been modified
+- **Certificate Validation**: Checks certificate validity period and chain
+- **Comprehensive Verification**: Provides detailed signature and certificate information
+
+#### **📋 Signing Options**
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--key <file>` | Private key file (PEM format) | `--key private-key.pem` |
+| `--cert <file>` | Certificate file (PEM format) | `--cert certificate.pem` |
+| `--chain <files...>` | Certificate chain files | `--chain intermediate.pem root.pem` |
+| `--output <file>` | Output file for signed document | `--output signed.adam.json` |
+
+#### **🔍 Verification Output Example**
+
+```bash
+📋 Signature Details:
+  Format: PKCS#7
+  Algorithm: sha256WithRSAEncryption
+  Signed at: 2024-08-31T11:29:14.424Z
+
+📜 Certificate Information:
+  Subject: ADAM Document Signer
+  Issuer: Certificate Authority
+  Valid from: 2024-08-31T11:29:09.593Z
+  Valid until: 2025-08-31T11:29:09.593Z
+  Serial: 1234567890ABCDEF
+
+🔐 Validation Status:
+  Signature: ✅ Valid
+  Certificate: ✅ Valid
+  Content Hash: c2c7d273bdfd19a9b75d977670005f65fd8f0fc61097e7bd151a97e793f64376
+
+✅ Signature verification passed
+```
+
+#### **⚠️ Important Notes for Signed Documents**
+
+- **WASM Packing**: Use `--no-optimize` flag when packing signed documents to preserve signature integrity
+- **Content Modification**: Any change to document content will invalidate the signature
+- **Certificate Expiry**: Signatures become invalid when certificates expire
+- **Production Use**: Always use proper CA-issued certificates for production signing
+
+```bash
+# Correct way to pack signed documents
+node src/cli.js pack signed.adam.json --no-optimize --output signed.wasm
+
+# Verify after unpacking (should still be valid)
+node src/cli.js unpack signed.wasm --output unpacked.adam.json
+node src/cli.js verify unpacked.adam.json
 ```
 
 ### Command Options Summary
@@ -478,7 +689,9 @@ node src/cli.js mcp-server document-mcp.wasm --stdio
 | `pack-mcp` | MCP-enhanced WASM | `--no-search-index`, `--no-relationship-cache` |
 | `unpack-mcp` | MCP WASM extraction | `--test-mcp`, `--verbose` |
 | `mcp-query` | Interactive querying | `--query`, `--tool`, `--limit` |
-| `mcp-server` | Standalone server | `--stdio`, `--verbose` |
+| `mcp-server` | **Self-contained MCP server** | `--stdio`, `--verbose` |
+| `sign` | **Digital document signing** | `--key`, `--cert`, `--chain`, `--output` |
+| `verify` | **Signature verification** | `--verbose`, `--details` |
 | `web` | HTTP server & API | `--port`, `--host`, `--max-file-size`, `--verbose` |
 
 ## Usage as Library
@@ -781,4 +994,4 @@ For issues, questions, or contributions:
 - **Node.js**: Version 18.0.0 or higher
 - **Memory**: Minimum 4GB RAM for large document processing
 - **Storage**: Varies by document size (typically 40MB JSON → 1MB WASM)
-- **Optional**: `@modelcontextprotocol/sdk` for standalone MCP server functionality
+- **Self-Contained**: No external dependencies needed for MCP server functionality
