@@ -2,6 +2,7 @@
  * Signature verification tools for WASM-embedded MCP servers
  * Provides cryptographic validation capabilities for ADAM documents
  */
+import { verifySignature as verifyDocumentSignature } from '../utils/signing.js';
 
 /**
  * MCP Tool definitions for signature verification
